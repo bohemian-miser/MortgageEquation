@@ -8,18 +8,15 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM -->
+    <!-- React & ReactDOM (Global Objects) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Babel for JSX -->
+    <!-- Babel (Compiles JSX in browser) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Custom styles that Tailwind doesn't cover easily */
+        /* Custom styles */
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 0; height: 0; opacity: 0; }
         input[type=range]::-moz-range-thumb { width: 0; height: 0; opacity: 0; border: none; }
         
@@ -41,7 +38,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- Constants for Market Ranges ---
+        // --- Constants ---
         const MARKET_RANGES = {
             mortgage: { min: 2.5, q1: 5.0, med: 6.5, q3: 8.0, max: 10.0 },
             appreciation: { min: 0, q1: 3.0, med: 4.0, q3: 6.0, max: 10.0 },
@@ -164,7 +161,6 @@
 
             // --- Visualization Logic ---
 
-            // Scale Factor
             const maxDollarHeight = Math.max(
                 totals.feesCost, 
                 totals.interestCost, 
@@ -175,7 +171,6 @@
             );
             const scaleFactor = 150 / maxDollarHeight; 
 
-            // Balloon Radius
             const getBalloonRadius = (val) => {
                 if (val <= 0) return 0;
                 const area = val * scaleFactor * 60; 
@@ -185,13 +180,11 @@
             const greenRadius = getBalloonRadius(totals.totalAppreciation);
             const yellowRadius = getBalloonRadius(totals.investmentReturn);
 
-            // PHYSICS LOGIC
+            // Physics
             const diff = totals.netBuyCost - totals.netRentCost; 
             const maxTilt = 12; 
             const sensitivity = Math.max(inputs.homeValue * 0.05, 5000); 
-            
             let tiltAngle = -(diff / sensitivity) * maxTilt;
-            
             if (tiltAngle > maxTilt) tiltAngle = maxTilt;
             if (tiltAngle < -maxTilt) tiltAngle = -maxTilt;
 
@@ -199,17 +192,14 @@
             const pivotX = 400;
             const pivotY = 450; 
             const armLength = 140; 
-            const legHeight = 60;  
-            
-            // Plate Dimensions - Compacted as requested
-            const leftPlateWidth = 250; // Shorter
-            const rightPlateWidth = 170; // Shorter
-            const plateHeight = 24; 
+            const legHeight = 50;  
+            const leftPlateWidth = 280; 
+            const rightPlateWidth = 220; // Slightly wider to fit Invest
+            const plateHeight = 30; 
 
             // Formatters
             const formatMoney = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
             const formatNumberWithCommas = (val) => new Intl.NumberFormat('en-US').format(val);
-            
             const formatRangeVal = (val) => {
                 const absVal = formatMoney(Math.abs(val));
                 return val >= 0 ? `+${absVal}` : `-${absVal}`;
@@ -235,126 +225,42 @@
                             </h2>
 
                             <div className="space-y-6">
-                                {/* Home Value */}
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Home Price</label>
                                     <div className="relative">
                                         <span className="absolute left-2 top-2 text-slate-500 font-mono text-sm">$</span>
-                                        <input 
-                                            type="text" 
-                                            value={homeValueDisplay} 
-                                            onChange={handleHomeValueChange}
-                                            onFocus={handleHomeValueFocus}
-                                            onBlur={handleHomeValueBlur}
-                                            className="w-full pl-5 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700"
-                                        />
+                                        <input type="text" value={homeValueDisplay} onChange={handleHomeValueChange} onFocus={handleHomeValueFocus} onBlur={handleHomeValueBlur} className="w-full pl-5 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700" />
                                     </div>
                                 </div>
                                     
-                                {/* Monthly Rent */}
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Monthly Rent</label>
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="relative flex-grow">
                                             <span className="absolute left-2 top-2 text-slate-500 font-mono text-sm">$</span>
-                                            <input 
-                                                type="number" 
-                                                name="monthlyRent"
-                                                value={inputs.monthlyRent}
-                                                onChange={handleInputChange}
-                                                className="w-full pl-5 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700"
-                                            />
+                                            <input type="number" name="monthlyRent" value={inputs.monthlyRent} onChange={handleInputChange} className="w-full pl-5 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700" />
                                         </div>
                                         <div className="flex flex-col justify-center text-[10px] font-mono text-slate-500 leading-tight min-w-[80px]">
                                             <span>${formatNumberWithCommas(Math.round(inputs.monthlyRent * 12 / 52))}/wk</span>
                                             <span>${formatNumberWithCommas(inputs.monthlyRent * 12)}/yr</span>
                                         </div>
                                     </div>
-                                
                                     <div className="relative h-6 flex items-center">
                                         <div className="absolute w-full h-2 bg-slate-200 rounded-full"></div>
-                                        <div 
-                                            className="absolute h-4 w-4 bg-slate-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2"
-                                            style={{ left: `${(inputs.monthlyRent / 15000) * 100}%` }}
-                                        ></div>
-                                        <input 
-                                            type="range" min="0" max="15000" step="50" 
-                                            name="monthlyRent" value={inputs.monthlyRent} onChange={handleInputChange} 
-                                            className="absolute w-full h-full opacity-0 cursor-pointer z-20"
-                                        />
+                                        <div className="absolute h-4 w-4 bg-slate-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${(inputs.monthlyRent / 15000) * 100}%` }}></div>
+                                        <input type="range" min="0" max="15000" step="50" name="monthlyRent" value={inputs.monthlyRent} onChange={handleInputChange} className="absolute w-full h-full opacity-0 cursor-pointer z-20" />
                                     </div>
                                 </div>
 
                                 <div className="w-full h-px bg-slate-100 my-2"></div>
 
-                                {/* Sliders */}
                                 <div className="space-y-6">
-                                    <BoxPlotSlider 
-                                        label="Mortgage Rate (Interest)" 
-                                        name="mortgageRate" 
-                                        value={inputs.mortgageRate} 
-                                        min={0} max={14} step={0.1}
-                                        rangeData={MARKET_RANGES.mortgage}
-                                        onChange={handleInputChange}
-                                        leftEmoji="📉" rightEmoji="📈"
-                                        accentColor="bg-orange-500"
-                                        thumbColor="bg-orange-500"
-                                        labelColor="text-orange-600"
-                                        dollarImpact={Math.round((totals.loanAmount * (inputs.mortgageRate/100)) / 12)}
-                                        ticks={[2, 5, 8, 12]}
-                                        inverse={true}
-                                    />
-
-                                    <BoxPlotSlider 
-                                        label="Appreciation" 
-                                        name="appreciation" 
-                                        value={inputs.appreciation} 
-                                        min={-5} max={15} step={0.1} 
-                                        rangeData={MARKET_RANGES.appreciation}
-                                        onChange={handleInputChange}
-                                        leftEmoji="🏚️" rightEmoji="🚀"
-                                        accentColor="bg-emerald-500"
-                                        thumbColor="bg-emerald-500"
-                                        labelColor="text-emerald-600"
-                                        dollarImpact={Math.round((inputs.homeValue * (inputs.appreciation/100)) / 12)}
-                                        ticks={[-2, 3, 8, 12]}
-                                        inverse={false}
-                                    />
-
-                                    <BoxPlotSlider 
-                                        label="Fees (Tax/Maint/Ins)" 
-                                        name="feesRate" 
-                                        value={inputs.feesRate} 
-                                        min={0} max={5} step={0.1}
-                                        rangeData={MARKET_RANGES.fees}
-                                        onChange={handleInputChange}
-                                        leftEmoji="⛺" rightEmoji="🏰"
-                                        accentColor="bg-red-500"
-                                        thumbColor="bg-red-500"
-                                        labelColor="text-red-600"
-                                        dollarImpact={Math.round((inputs.homeValue * (inputs.feesRate/100)) / 12)}
-                                        ticks={[0, 1.5, 3, 4.5]}
-                                        inverse={true}
-                                    />
-
-                                    <BoxPlotSlider 
-                                        label="Inv. Return (Opp. Cost)" 
-                                        name="stockReturn" 
-                                        value={inputs.stockReturn} 
-                                        min={-1} max={20} step={0.1} 
-                                        rangeData={MARKET_RANGES.stock}
-                                        onChange={handleInputChange}
-                                        leftEmoji="🐻" rightEmoji="🐂"
-                                        accentColor="bg-yellow-500"
-                                        thumbColor="bg-yellow-500"
-                                        labelColor="text-yellow-600"
-                                        dollarImpact={Math.round((totals.downPayment * (inputs.stockReturn/100)) / 12)}
-                                        ticks={[0, 7, 14]}
-                                        inverse={false}
-                                    />
+                                    <BoxPlotSlider label="Mortgage Rate (Interest)" name="mortgageRate" value={inputs.mortgageRate} min={0} max={14} step={0.1} rangeData={MARKET_RANGES.mortgage} onChange={handleInputChange} leftEmoji="📉" rightEmoji="📈" accentColor="bg-orange-500" thumbColor="bg-orange-500" labelColor="text-orange-600" dollarImpact={Math.round((totals.loanAmount * (inputs.mortgageRate/100)) / 12)} ticks={[2, 5, 8, 12]} inverse={true} />
+                                    <BoxPlotSlider label="Appreciation" name="appreciation" value={inputs.appreciation} min={-5} max={15} step={0.1} rangeData={MARKET_RANGES.appreciation} onChange={handleInputChange} leftEmoji="🏚️" rightEmoji="🚀" accentColor="bg-emerald-500" thumbColor="bg-emerald-500" labelColor="text-emerald-600" dollarImpact={Math.round((inputs.homeValue * (inputs.appreciation/100)) / 12)} ticks={[-2, 3, 8, 12]} inverse={false} />
+                                    <BoxPlotSlider label="Fees (Tax/Maint/Ins)" name="feesRate" value={inputs.feesRate} min={0} max={5} step={0.1} rangeData={MARKET_RANGES.fees} onChange={handleInputChange} leftEmoji="⛺" rightEmoji="🏰" accentColor="bg-red-500" thumbColor="bg-red-500" labelColor="text-red-600" dollarImpact={Math.round((inputs.homeValue * (inputs.feesRate/100)) / 12)} ticks={[0, 1.5, 3, 4.5]} inverse={true} />
+                                    <BoxPlotSlider label="Inv. Return (Opp. Cost)" name="stockReturn" value={inputs.stockReturn} min={-1} max={20} step={0.1} rangeData={MARKET_RANGES.stock} onChange={handleInputChange} leftEmoji="🐻" rightEmoji="🐂" accentColor="bg-yellow-500" thumbColor="bg-yellow-500" labelColor="text-yellow-600" dollarImpact={Math.round((totals.downPayment * (inputs.stockReturn/100)) / 12)} ticks={[0, 7, 14]} inverse={false} />
                                 </div>
                                 
-                                {/* Down Payment */}
                                 <div className="pt-2 bg-blue-50 p-3 rounded-lg border border-blue-100">
                                     <label className="flex justify-between text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-1">
                                         <span>Down Payment ({inputs.downPaymentPercent}%)</span>
@@ -362,22 +268,15 @@
                                     </label>
                                     <div className="relative h-3 flex items-center">
                                         <div className="absolute w-full h-2 bg-blue-200 rounded-full"></div>
-                                        <div 
-                                            className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2"
-                                            style={{ left: `${inputs.downPaymentPercent}%` }}
-                                        ></div>
+                                        <div className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${inputs.downPaymentPercent}%` }}></div>
                                         <input type="range" min="0" max="100" step="1" name="downPaymentPercent" value={inputs.downPaymentPercent} onChange={handleInputChange} className="absolute w-full h-full opacity-0 cursor-pointer z-20"/>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        {/* Dial */}
                         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 text-center">
-                                Market Outlook
-                            </label>
-                            
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 text-center">Market Outlook</label>
                             <div className="relative w-48 h-28 overflow-hidden mt-2">
                                 <svg viewBox="0 0 200 110" className="w-full h-full">
                                     <defs>
@@ -403,9 +302,7 @@
                                 <div className="absolute bottom-2 left-4 text-lg">🧐</div>
                                 <div className="absolute bottom-2 right-4 text-lg">🤪</div>
                             </div>
-
-                            <div className={`mt-1 font-bold text-sm transition-colors duration-300
-                                ${marketOutlookScore > 75 ? 'text-emerald-600' : marketOutlookScore < 40 ? 'text-red-600' : 'text-slate-600'}`}>
+                            <div className={`mt-1 font-bold text-sm transition-colors duration-300 ${marketOutlookScore > 75 ? 'text-emerald-600' : marketOutlookScore < 40 ? 'text-red-600' : 'text-slate-600'}`}>
                                 {getOutlookLabel(marketOutlookScore)}
                             </div>
                         </div>
@@ -422,54 +319,36 @@
                         </div>
 
                         <svg viewBox="0 0 800 600" className="w-full h-full flex-grow touch-none select-none">
-                            
-                            {/* Ground */}
                             <line x1="100" y1="550" x2="700" y2="550" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" />
-
-                            {/* --- SEESAW MECHANISM --- */}
                             
-                            {/* Fulcrum Triangle */}
+                            {/* Fulcrum */}
                             <path d={`M${pivotX} ${pivotY} L${pivotX - 30} ${pivotY + 40} L${pivotX + 30} ${pivotY + 40} Z`} fill="#64748b" />
                             <circle cx={pivotX} cy={pivotY} r="6" fill="#475569" />
 
-                            {/* Rotating Group: The Beam ONLY (Arms act as pivoting linkages) */}
+                            {/* ROTATING BEAM */}
                             <g transform={`rotate(${tiltAngle}, ${pivotX}, ${pivotY})`}>
-                                {/* Main Beam */}
                                 <rect x={pivotX - armLength - 10} y={pivotY - 10} width={(armLength * 2) + 20} height={20} rx="4" fill="#334155" />
-                                {/* Pivot circles at beam ends */}
                                 <circle cx={pivotX - armLength} cy={pivotY} r="4" fill="#94a3b8" />
                                 <circle cx={pivotX + armLength} cy={pivotY} r="4" fill="#94a3b8" />
                             </g>
 
-                            {/* --- PLATES & VERTICAL ARMS --- */}
-                            {/* The arms are vertical linkages. They connect the ROTATING beam tip 
-                                to the NON-ROTATING plate.
-                                
-                                Math:
-                                1. Calculate where the Beam Tip is (based on tilt angle).
-                                2. Draw the Arm straight UP from that tip.
-                                3. Draw the Plate on top of the Arm.
-                                
-                                This creates the visual of a parallelogram linkage / self-leveling tray.
-                            */}
+                            {/* PLATES & ARMS (Calculated outside rotation to stay vertical) */}
                             {(() => {
                                 const rads = (tiltAngle * Math.PI) / 180;
                                 
-                                // Calculate Beam Tip Positions (Rotation logic)
-                                // Left Tip (at angle + 180 deg)
                                 const leftTipX = pivotX + (armLength * Math.cos(rads + Math.PI));
                                 const leftTipY = pivotY + (armLength * Math.sin(rads + Math.PI));
                                 
-                                // Right Tip (at angle 0 deg)
                                 const rightTipX = pivotX + (armLength * Math.cos(rads));
                                 const rightTipY = pivotY + (armLength * Math.sin(rads));
 
                                 return (
                                     <>
-                                        {/* CENTRAL COMPARISON SYMBOL (<) */}
+                                        {/* Central Symbol (<) */}
+                                        {/* Centered between the two plates visually roughly at y=pivotY-legHeight */}
                                         <text 
                                             x={pivotX} 
-                                            y={pivotY - legHeight - 20} 
+                                            y={pivotY - legHeight - 10} 
                                             textAnchor="middle" 
                                             dominantBaseline="central" 
                                             fill="#94a3b8" 
@@ -481,32 +360,16 @@
 
                                         {/* LEFT ASSEMBLY */}
                                         <g>
-                                            {/* Vertical Leg: Drawn from Beam Tip UP to Plate Bottom */}
-                                            {/* Note: We don't rotate this rect. It stays vertical. */}
-                                            <rect 
-                                                x={leftTipX - 4} 
-                                                y={leftTipY - legHeight} 
-                                                width={8} 
-                                                height={legHeight} 
-                                                fill="#475569" 
-                                            />
+                                            {/* Vertical Arm (Fixed vertical) */}
+                                            <rect x={leftTipX - 4} y={leftTipY - legHeight} width={8} height={legHeight} fill="#475569" />
                                             
-                                            {/* Plate Group: Positioned at top of leg */}
+                                            {/* Plate Group */}
                                             <g transform={`translate(${leftTipX}, ${leftTipY - legHeight})`}>
-                                                {/* Plate */}
                                                 <rect x={-leftPlateWidth/2} y="0" width={leftPlateWidth} height={plateHeight} rx="3" fill="white" stroke="black" strokeWidth="2" />
                                                 
-                                                {/* ITEMS: Interest + Fees - Appreciation */}
-                                                {/* Spacing Logic for Width 250: 
-                                                    Center 0. 
-                                                    Edges +/- 125.
-                                                    Items at -80, 0, +80.
-                                                    Signs at -40, +40.
-                                                */}
-                                                
-                                                {/* 1. Interest (Left) */}
+                                                {/* Left: Interest */}
                                                 <PlatformItem 
-                                                    x={-80} y={0} 
+                                                    x={-leftPlateWidth/3} y={0} 
                                                     label="Interest" 
                                                     labelColor="#f97316" 
                                                     value={totals.interestCost} 
@@ -514,11 +377,10 @@
                                                     scaleFactor={scaleFactor} 
                                                     isBalloon={false}
                                                 />
+                                                {/* + Sign */}
+                                                <text x={-leftPlateWidth/6} y={19} textAnchor="middle" fill="black" fontSize="16" fontWeight="900">+</text>
 
-                                                {/* Plus Sign */}
-                                                <text x={-40} y={18} textAnchor="middle" fill="black" fontSize="16" fontWeight="900">+</text>
-
-                                                {/* 2. Fees (Center) */}
+                                                {/* Center: Fees */}
                                                 <PlatformItem 
                                                     x={0} y={0} 
                                                     label="Fees" 
@@ -528,13 +390,12 @@
                                                     scaleFactor={scaleFactor} 
                                                     isBalloon={false}
                                                 />
+                                                {/* +/- Sign */}
+                                                <text x={leftPlateWidth/6} y={19} textAnchor="middle" fill="black" fontSize="16" fontWeight="900">{totals.totalAppreciation >= 0 ? '-' : '+'}</text>
 
-                                                {/* Plus or Minus Sign */}
-                                                <text x={40} y={18} textAnchor="middle" fill="black" fontSize="16" fontWeight="900">{totals.totalAppreciation >= 0 ? '-' : '+'}</text>
-
-                                                {/* 3. Appreciation/Loss (Right) */}
+                                                {/* Right: Appr/Loss */}
                                                 <PlatformItem 
-                                                    x={80} y={0} 
+                                                    x={leftPlateWidth/3} y={0} 
                                                     label={totals.totalAppreciation >= 0 ? "Appreciation" : "Loss"} 
                                                     labelColor={totals.totalAppreciation >= 0 ? "#10b981" : "#059669"}
                                                     value={totals.totalAppreciation} 
@@ -549,30 +410,16 @@
 
                                         {/* RIGHT ASSEMBLY */}
                                         <g>
-                                            {/* Vertical Leg */}
-                                            <rect 
-                                                x={rightTipX - 4} 
-                                                y={rightTipY - legHeight} 
-                                                width={8} 
-                                                height={legHeight} 
-                                                fill="#475569" 
-                                            />
+                                            {/* Vertical Arm */}
+                                            <rect x={rightTipX - 4} y={rightTipY - legHeight} width={8} height={legHeight} fill="#475569" />
                                             
                                             {/* Plate Group */}
                                             <g transform={`translate(${rightTipX}, ${rightTipY - legHeight})`}>
-                                                {/* Plate */}
                                                 <rect x={-rightPlateWidth/2} y="0" width={rightPlateWidth} height={plateHeight} rx="3" fill="white" stroke="black" strokeWidth="2" />
                                                 
-                                                {/* ITEMS: Rent - Invest */}
-                                                {/* Spacing Logic for Width 170:
-                                                    Center 0.
-                                                    Items at -45, +45.
-                                                    Sign at 0.
-                                                */}
-                                                
-                                                {/* 1. Rent (Left) */}
+                                                {/* Left: Rent */}
                                                 <PlatformItem 
-                                                    x={-45} y={0} 
+                                                    x={-rightPlateWidth/4} y={0} 
                                                     label="Rent" 
                                                     labelColor="#64748b" 
                                                     value={totals.annualRent} 
@@ -580,13 +427,12 @@
                                                     scaleFactor={scaleFactor} 
                                                     isBalloon={false}
                                                 />
+                                                {/* +/- Sign */}
+                                                <text x={0} y={19} textAnchor="middle" fill="black" fontSize="16" fontWeight="900">{totals.investmentReturn >= 0 ? '-' : '+'}</text>
 
-                                                {/* Minus or Plus Sign */}
-                                                <text x={0} y={18} textAnchor="middle" fill="black" fontSize="16" fontWeight="900">{totals.investmentReturn >= 0 ? '-' : '+'}</text>
-
-                                                {/* 2. Invest/Loss (Right) */}
+                                                {/* Right: Invest */}
                                                 <PlatformItem 
-                                                    x={45} y={0} 
+                                                    x={rightPlateWidth/4} y={0} 
                                                     label={totals.investmentReturn >= 0 ? "Invest" : "Loss"} 
                                                     labelColor={totals.investmentReturn >= 0 ? "#eab308" : "#854d0e"}
                                                     value={totals.investmentReturn} 
@@ -601,80 +447,65 @@
                                     </>
                                 );
                             })()}
-
                         </svg>
                     </div>
                         
-                        {/* Footer Stats */}
-                        <div className="bg-slate-50 border-t border-slate-200 p-3 flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 z-10 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs uppercase font-bold text-slate-500">Annual Difference:</span>
-                                <span className={`text-xl font-mono font-bold ${netDiff > 0 ? 'text-blue-600' : 'text-slate-700'}`}>
-                                    {formatMoney(Math.abs(netDiff))}
-                                </span>
-                                <span className="text-sm font-medium text-slate-600">
-                                    in favor of {betterOption}
-                                </span>
-                            </div>
-                            
-                            <div className="hidden sm:block w-px h-10 bg-slate-300"></div>
-                            
-                            <div className="flex flex-col items-center sm:items-start">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wide mb-1">Net outcome for Buying</span>
-                                <div className="flex items-start gap-6 text-xs font-mono text-slate-600">
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-base font-bold">{formatRangeVal(rangeEstimates.conservative)}</span>
-                                        <span className="text-[9px] text-slate-400 font-sans font-bold uppercase mt-0.5">Conservative</span>
-                                    </div>
-                                    <div className="h-8 w-px bg-slate-200 mx-[-8px]"></div>
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-base font-bold">{formatRangeVal(rangeEstimates.optimistic)}</span>
-                                        <span className="text-[9px] text-slate-400 font-sans font-bold uppercase mt-0.5">Optimistic</span>
-                                    </div>
+                    {/* Footer Stats */}
+                    <div className="bg-slate-50 border-t border-slate-200 p-3 flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 z-10 shrink-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs uppercase font-bold text-slate-500">Annual Difference:</span>
+                            <span className={`text-xl font-mono font-bold ${netDiff > 0 ? 'text-blue-600' : 'text-slate-700'}`}>
+                                {formatMoney(Math.abs(netDiff))}
+                            </span>
+                            <span className="text-sm font-medium text-slate-600">
+                                in favor of {betterOption}
+                            </span>
+                        </div>
+                        
+                        <div className="hidden sm:block w-px h-10 bg-slate-300"></div>
+                        
+                        <div className="flex flex-col items-center sm:items-start">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wide mb-1">Net outcome for Buying</span>
+                            <div className="flex items-start gap-6 text-xs font-mono text-slate-600">
+                                <div className="flex flex-col items-center">
+                                    <span className="text-base font-bold">{formatRangeVal(rangeEstimates.conservative)}</span>
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold uppercase mt-0.5">Conservative</span>
+                                </div>
+                                <div className="h-8 w-px bg-slate-200 mx-[-8px]"></div>
+                                <div className="flex flex-col items-center">
+                                    <span className="text-base font-bold">{formatRangeVal(rangeEstimates.optimistic)}</span>
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold uppercase mt-0.5">Optimistic</span>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Disclaimer */}
-                        <footer className="bg-slate-100 border-t border-slate-200 p-4 text-[10px] md:text-xs text-slate-500 leading-relaxed">
-                            <p className="font-bold mb-1">Buying a house isn't always the best financial move.</p>
-                            <p className="mb-2">How much would you really pay to not have to rent?</p>
-                            <p className="italic opacity-80">
-                                <span className="font-bold">DISCLAIMER:</span> If this tells you to keep renting, you should probably keep renting. If it tells you to consider a mortgage, remember that markets can change dramatically and unpredictably over time. This tool is for educational purposes only.
-                            </p>
-                        </footer>
-
                     </div>
+
+                    {/* Disclaimer */}
+                    <footer className="bg-slate-100 border-t border-slate-200 p-4 text-[10px] md:text-xs text-slate-500 leading-relaxed">
+                        <p className="font-bold mb-1">Buying a house isn't always the best financial move.</p>
+                        <p className="mb-2">How much would you really pay to not have to rent?</p>
+                        <p className="italic opacity-80">
+                            <span className="font-bold">DISCLAIMER:</span> If this tells you to keep renting, you should probably keep renting. If it tells you to consider a mortgage, remember that markets can change dramatically and unpredictably over time. This tool is for educational purposes only.
+                        </p>
+                    </footer>
+
                 </div>
-                </div>
+            </div>
+            </div>
             );
         };
 
         // --- Sub-Components ---
-
         const PlatformItem = ({ x, y, label, labelColor, value, color, scaleFactor, balloonRadius, isBalloon, emoji }) => {
             const formatMoney = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
-            
             const height = Math.abs(value) * scaleFactor;
             const isLoss = value < 0 && isBalloon; 
-
             const showValue = height > 20 || (isBalloon && !isLoss && balloonRadius > 20);
 
             return (
                 <g transform={`translate(${x}, ${y})`}>
-                    {/* Column Label INSIDE the Plate */}
-                    <text 
-                        y="17" 
-                        textAnchor="middle" 
-                        fill={labelColor} 
-                        fontSize="13" 
-                        fontWeight="900" 
-                    >
-                        {label}
-                    </text>
-
+                    <text y="20" textAnchor="middle" fill={labelColor} fontSize="13" fontWeight="900">{label}</text>
                     {isBalloon && !isLoss ? (
-                        // BALLOON (Lifting Up)
                         <g>
                             <line x1="0" y1="0" x2="0" y2="-50" stroke="#cbd5e1" strokeWidth="2" />
                             <g transform={`translate(0, -50)`}>
@@ -687,18 +518,8 @@
                             </g>
                         </g>
                     ) : (
-                        // WEIGHT (Sitting on Platform)
                         <g>
-                            <rect 
-                                x="-25" 
-                                y={-height} 
-                                width="50" 
-                                height={height} 
-                                fill={isLoss ? '#d1fae5' : color} 
-                                stroke={isLoss ? '#059669' : 'white'}
-                                strokeWidth="1" 
-                            />
-                            {/* Value Text */}
+                            <rect x="-25" y={-height} width="50" height={height} fill={isLoss ? '#d1fae5' : color} stroke={isLoss ? '#059669' : 'white'} strokeWidth="1" />
                             {showValue && (
                                 <text x="0" y={-height/2 + 4} textAnchor="middle" fill={isLoss ? "#334155" : "white"} fontSize="10" fontWeight="bold">{formatMoney(Math.abs(value))}</text>
                             )}
