@@ -1,90 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mortgage Equation</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React and Babel CDNs -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide Icons (equivalent to DollarSign and Percent from Lucide React) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        /* Custom styles for the range input for better visual feedback */
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 0 0 3px white, 0 0 0 4px;
-        }
-        input[type=range].accent-orange-500::-webkit-slider-thumb { box-shadow: 0 0 0 3px white, 0 0 0 4px #f97316; }
-        input[type=range].accent-emerald-500::-webkit-slider-thumb { box-shadow: 0 0 0 3px white, 0 0 0 4px #10b981; }
-        input[type=range].accent-red-500::-webkit-slider-thumb { box-shadow: 0 0 0 3px white, 0 0 0 4px #ef4444; }
-        input[type=range].accent-yellow-500::-webkit-slider-thumb { box-shadow: 0 0 0 3px white, 0 0 0 4px #eab308; }
-        input[type=range].accent-blue-600::-webkit-slider-thumb { box-shadow: 0 0 0 3px white, 0 0 0 4px #2563eb; }
+import React, { useState, useEffect, useMemo } from 'react';
 
-        /* Ensure smooth SVG transitions */
-        .transition-transform {
-            transition-property: transform;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 700ms;
-        }
-    </style>
-</head>
-<body class="bg-slate-50">
-
-<div id="root"></div>
-
-<script type="text/babel">
-const { useState, useEffect, useRef } = React;
-
-// Utility component to render a slider with markers
-const SliderWithMarkers = ({ label, subLabel, name, value, min, max, step, onChange, markers, accentColor, labelColor }) => {
-    return (
-        <div>
-            <div className="flex justify-between items-baseline mb-1">
-                <label className={`text-[10px] font-bold uppercase tracking-wide ${labelColor}`}>
-                    {label} {subLabel && <span className="text-slate-400 font-normal normal-case ml-1">{subLabel}</span>}
-                </label>
-                <span className="font-mono text-xs font-bold text-slate-700">{value}%</span>
-            </div>
-            
-            <input 
-                type="range" 
-                min={min} max={max} step={step} 
-                name={name} 
-                value={value} 
-                onChange={onChange} 
-                className={`w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer ${accentColor} mb-1`}
-            />
-
-            <div className="relative h-3 w-full text-[9px] text-slate-400 font-medium">
-                {markers.map((m, i) => {
-                    const pos = ((m.val - min) / (max - min)) * 100;
-                    if (pos < 0 || pos > 100) return null;
-                    return (
-                        <div 
-                            key={i} 
-                            className="absolute flex flex-col items-center transform -translate-x-1/2"
-                            style={{ left: `${pos}%` }}
-                        >
-                            <div className="w-px h-1 bg-slate-300 mb-0.5"></div>
-                            <span>{m.val}</span>
-                        </div>
-                    )
-                })}
-            </div>
-        </div>
-    );
+// --- Constants for Market Ranges (The "Highlighted Regions") ---
+const MARKET_RANGES = {
+    mortgage: { min: 2.5, q1: 5.0, med: 6.5, q3: 8.0, max: 10.0 },
+    appreciation: { min: 0, q1: 3.0, med: 4.0, q3: 6.0, max: 10.0 },
+    fees: { min: 0.8, q1: 1.5, med: 2.2, q3: 3.0, max: 4.0 },
+    stock: { min: 2.0, q1: 6.0, med: 8.0, q3: 10.0, max: 12.0 }
 };
 
-// Main Application Component
 const RentVsBuySeesaw = () => {
   // --- State ---
   const [inputs, setInputs] = useState({
@@ -93,73 +16,89 @@ const RentVsBuySeesaw = () => {
     mortgageRate: 6.5,
     stockReturn: 8.5, // Net after tax
     appreciation: 4.0,
-    feesRate: 2.5, // Maintenance + Tax + Insurance
+    feesRate: 2.2, // Maintenance + Tax + Insurance
     monthlyRent: 2500,
   });
 
   const [homeValueDisplay, setHomeValueDisplay] = useState("500,000");
-  const [breakdown, setBreakdown] = useState({ buyCosts: [], rentCosts: [] });
-  const [totals, setTotals] = useState({ 
-    netBuyCost: 0, 
-    grossBuyCost: 0, 
-    netRentCost: 0,
-    annualRent: 0, 
-    totalAppreciation: 0,
-    investmentReturn: 0 
-  });
+
+  // --- Market Outlook Calculation (Output) ---
+  const marketOutlookScore = useMemo(() => {
+    const getScore = (val, min, max, isInverse) => {
+        let pct = (val - min) / (max - min);
+        if (isInverse) pct = 1 - pct;
+        return Math.max(0, Math.min(100, pct * 100));
+    };
+
+    const rateScore = getScore(inputs.mortgageRate, 2.5, 10, true);
+    const apprScore = getScore(inputs.appreciation, 0, 8, false);
+    const feesScore = getScore(inputs.feesRate, 1, 3.5, true);
+
+    return (rateScore + apprScore + feesScore) / 3;
+  }, [inputs.mortgageRate, inputs.appreciation, inputs.feesRate]);
+
+  const getOutlookLabel = (score) => {
+      if (score < 25) return "Pessimistic";
+      if (score < 45) return "Conservative";
+      if (score < 65) return "Neutral";
+      if (score < 85) return "Optimistic";
+      return "Aggressive";
+  };
 
   // --- Calculations ---
-  useEffect(() => {
-    const H = inputs.homeValue;
-    const D = H * (inputs.downPaymentPercent / 100);
+  const calculateTotals = (vals) => {
+    const H = vals.homeValue;
+    const D = H * (vals.downPaymentPercent / 100);
     const Loan = H - D;
     
-    // Costs (Annualized)
-    const feesCost = H * (inputs.feesRate / 100);
-    const interestCost = Loan * (inputs.mortgageRate / 100);
-    
-    // Gains (Annualized - Buy Side)
-    const loanAppreciation = Loan * (inputs.appreciation / 100);
-    const equityAppreciation = D * (inputs.appreciation / 100);
-    const totalAppreciation = loanAppreciation + equityAppreciation;
+    const feesCost = H * (vals.feesRate / 100);
+    const interestCost = Loan * (vals.mortgageRate / 100);
+    const totalAppreciation = H * (vals.appreciation / 100);
+    const investmentReturn = D * (vals.stockReturn / 100);
 
-    // Gains (Annualized - Rent Side - Investment Return on Down Payment)
-    const investmentReturn = D * (inputs.stockReturn / 100);
-
-    // Aggregates (Annualized Net Costs)
     const grossBuyCost = feesCost + interestCost;
     const netBuyCost = grossBuyCost - totalAppreciation;
     
-    const annualRent = inputs.monthlyRent * 12;
+    const annualRent = vals.monthlyRent * 12;
     const netRentCost = annualRent - investmentReturn;
+    
+    return {
+        netBuyCost, netRentCost, 
+        grossBuyCost, totalAppreciation, investmentReturn, 
+        feesCost, interestCost, annualRent, loanAmount: Loan, downPayment: D
+    };
+  };
 
-    setTotals({ 
-      netBuyCost, 
-      grossBuyCost, 
-      netRentCost,
-      annualRent, 
-      totalAppreciation,
-      investmentReturn
-    });
+  const totals = useMemo(() => calculateTotals(inputs), [inputs]);
 
-    setBreakdown({
-      buyCosts: [
-        { 
-            id: 'fees', 
-            label: 'Fees & Maint', 
-            value: feesCost, 
-            color: '#ef4444' // red-500
-        },
-        { 
-            id: 'interest', 
-            label: 'Interest', 
-            value: interestCost, 
-            color: '#f97316' // orange-500
-        },
-      ]
-    });
+  // --- Range Calculations (Conservative vs Optimistic) ---
+  const rangeEstimates = useMemo(() => {
+      // 1. Optimistic Scenario (Best case for Buying)
+      // Low Rates, High Appr, Low Fees, Low Stock Returns (Low opportunity cost)
+      const optimisticCalc = calculateTotals({
+          ...inputs,
+          mortgageRate: MARKET_RANGES.mortgage.q1, // 5.0
+          appreciation: MARKET_RANGES.appreciation.q3, // 6.0
+          feesRate: MARKET_RANGES.fees.q1, // 1.5
+          stockReturn: MARKET_RANGES.stock.q1 // 6.0 
+      });
+      // Net Benefit of Buying = Rent Cost - Buy Cost
+      const optimisticDiff = optimisticCalc.netRentCost - optimisticCalc.netBuyCost;
 
-  }, [inputs]);
+      // 2. Conservative Scenario (Worst case for Buying / Best case for Renting)
+      // High Rates, Low Appr, High Fees, High Stock Returns (High opportunity cost)
+      const conservativeCalc = calculateTotals({
+          ...inputs,
+          mortgageRate: MARKET_RANGES.mortgage.q3, // 8.0
+          appreciation: MARKET_RANGES.appreciation.q1, // 3.0
+          feesRate: MARKET_RANGES.fees.q3, // 3.0
+          stockReturn: MARKET_RANGES.stock.q3 // 10.0
+      });
+      const conservativeDiff = conservativeCalc.netRentCost - conservativeCalc.netBuyCost;
+
+      return { conservative: conservativeDiff, optimistic: optimisticDiff };
+  }, [inputs.homeValue, inputs.downPaymentPercent, inputs.monthlyRent]);
+
 
   // --- Handlers ---
   const handleInputChange = (e) => {
@@ -187,50 +126,85 @@ const RentVsBuySeesaw = () => {
     setHomeValueDisplay(formatNumberWithCommas(inputs.homeValue));
   };
 
-  // --- Visualization Logic ---
-  
-  // Dynamic Scaling for Stacks
-  const maxStackValue = Math.max(totals.grossBuyCost, totals.annualRent, 1);
-  const dynamicScale = 180 / (maxStackValue * 1.1); 
+  // --- Visualization Logic & Scaling ---
 
-  // Dynamic Sizing for Balloons
-  // Calculate radius based on value. Min radius: 35px, Max radius: 80px
-  const calculateBalloonRadius = (val) => {
-      if (val <= 0) return 35; 
-      // Scale: 25 + sqrt(val) * factor (0.25 chosen empirically for good range)
-      return Math.min(80, Math.max(35, 25 + Math.sqrt(val) * 0.25));
+  // 1. Global Scale Calculation
+  const leftStackDollars = totals.grossBuyCost + (totals.totalAppreciation > 0 ? totals.totalAppreciation * 1.2 : Math.abs(totals.totalAppreciation));
+  const rightStackDollars = totals.annualRent + (totals.investmentReturn > 0 ? totals.investmentReturn * 1.2 : Math.abs(totals.investmentReturn));
+  const maxDollarHeight = Math.max(leftStackDollars, rightStackDollars, 15000);
+  const scaleFactor = 220 / maxDollarHeight; 
+
+  // 2. Balloon Radius
+  const getBalloonRadius = (val) => {
+      if (val <= 0) return 0;
+      const area = val * scaleFactor * 80; 
+      return Math.sqrt(area / Math.PI);
   };
 
-  const greenRadius = calculateBalloonRadius(totals.totalAppreciation);
-  const yellowRadius = calculateBalloonRadius(totals.investmentReturn);
+  const greenRadius = getBalloonRadius(totals.totalAppreciation);
+  const yellowRadius = getBalloonRadius(totals.investmentReturn);
 
-
-  // Seesaw Physics
-  // diff > 0 means Rent Cost > Buy Cost (Rent is "heavier", tips right)
+  // 3. Seesaw Physics
   const diff = totals.netRentCost - totals.netBuyCost; 
   const maxTilt = 12; 
-  const sensitivity = 15000; 
+  const sensitivity = Math.max(inputs.homeValue * 0.05, 5000); 
   let tiltAngle = (diff / sensitivity) * maxTilt;
   if (tiltAngle > maxTilt) tiltAngle = maxTilt;
   if (tiltAngle < -maxTilt) tiltAngle = -maxTilt;
 
-  const beamLength = 500;
   const pivotX = 400;
   const pivotY = 420;
+  const beamLength = 500;
 
   // Formatters
   const formatMoney = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
   const formatNumberWithCommas = (val) => new Intl.NumberFormat('en-US').format(val);
+  
+  const formatRangeVal = (val) => {
+    const absVal = formatMoney(Math.abs(val));
+    return val >= 0 ? `+${absVal}` : `-${absVal}`;
+  };
+
+  const netDiff = totals.netRentCost - totals.netBuyCost;
+  const betterOption = netDiff > 0 ? "Buying" : "Renting";
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-slate-50 text-slate-800 font-sans p-2 md:p-4 overflow-hidden">
-      
+      <style>{`
+        /* Hide default slider thumb */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 0;
+            height: 0;
+            opacity: 0;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 0;
+            height: 0;
+            opacity: 0;
+            border: none;
+        }
+        /* Needle Shake Animation - Relative Rotation */
+        @keyframes shake-needle {
+          0% { transform: rotate(0deg); }
+          25% { transform: rotate(5deg); }
+          50% { transform: rotate(-5deg); }
+          75% { transform: rotate(3deg); }
+          100% { transform: rotate(0deg); }
+        }
+        .needle-shake {
+          animation: shake-needle 0.15s infinite linear;
+          transform-origin: 0 0; /* Pivot around the group center */
+        }
+      `}</style>
+
       {/* HEADER */}
-      <header className="w-full max-w-5xl mb-4 text-center shrink-0">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">The Mortgage Equation</h1>
+      <header className="w-full max-w-6xl mb-4 flex flex-col items-center gap-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 text-center">The Mortgage Equation</h1>
         
         {/* EQUATION */}
-        <div className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-slate-200 font-mono text-xs md:text-sm">
+        <div className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200 font-mono text-xs md:text-sm">
           <span className="font-bold text-slate-700">Rent</span>
           <span className="text-slate-400">-</span>
           <span className="text-yellow-600 font-bold">Investments</span>
@@ -244,240 +218,416 @@ const RentVsBuySeesaw = () => {
       </header>
 
       {/* MAIN CONTENT GRID */}
-      <div className="flex flex-col lg:flex-row gap-4 w-full max-w-6xl flex-grow">
+      <div className="flex flex-col lg:flex-row gap-6 w-full max-w-7xl flex-grow">
         
         {/* LEFT PANEL: INPUTS */}
-        <div className="w-full lg:w-[350px] xl:w-[400px] shrink-0 bg-white p-4 rounded-xl shadow-sm border border-slate-200 order-2 lg:order-1 h-fit">
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-            Variables
-          </h2>
+        <div className="w-full lg:w-[400px] shrink-0 flex flex-col gap-4 order-2 lg:order-1">
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
+                    Variables
+                </h2>
 
-          <div className="space-y-4">
-            {/* Home Value */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Home Value</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-slate-500 font-mono text-sm">$</span>
-                <input 
-                  type="text" 
-                  value={homeValueDisplay} 
-                  onChange={handleHomeValueChange}
-                  onFocus={handleHomeValueFocus}
-                  onBlur={handleHomeValueBlur}
-                  className="w-full pl-6 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700"
-                />
-              </div>
+                <div className="space-y-6">
+                    {/* Home Value */}
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Home Price</label>
+                        <div className="relative">
+                            <span className="absolute left-2 top-2 text-slate-500 font-mono text-sm">$</span>
+                            <input 
+                                type="text" 
+                                value={homeValueDisplay} 
+                                onChange={handleHomeValueChange}
+                                onFocus={handleHomeValueFocus}
+                                onBlur={handleHomeValueBlur}
+                                className="w-full pl-5 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700"
+                            />
+                        </div>
+                    </div>
+                        
+                    {/* Monthly Rent */}
+                    <div>
+                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Monthly Rent</label>
+                        <div className="flex items-center gap-3 mb-2">
+                             <div className="relative flex-grow">
+                                <span className="absolute left-2 top-2 text-slate-500 font-mono text-sm">$</span>
+                                <input 
+                                    type="number" 
+                                    name="monthlyRent"
+                                    value={inputs.monthlyRent}
+                                    onChange={handleInputChange}
+                                    className="w-full pl-5 p-1.5 bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm text-slate-700"
+                                />
+                            </div>
+                            <div className="flex flex-col justify-center text-[10px] font-mono text-slate-500 leading-tight min-w-[80px]">
+                                <span>${formatNumberWithCommas(Math.round(inputs.monthlyRent * 12 / 52))}/wk</span>
+                                <span>${formatNumberWithCommas(inputs.monthlyRent * 12)}/yr</span>
+                            </div>
+                        </div>
+                       
+                        <div className="relative h-6 flex items-center">
+                            {/* Custom Slider Track for Rent (Simplified) */}
+                            <div className="absolute w-full h-2 bg-slate-200 rounded-full"></div>
+                            {/* Thumb */}
+                            <div 
+                                className="absolute h-4 w-4 bg-slate-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2"
+                                style={{ left: `${(inputs.monthlyRent / 15000) * 100}%` }}
+                            ></div>
+                            <input 
+                                type="range" min="0" max="15000" step="50" 
+                                name="monthlyRent" value={inputs.monthlyRent} onChange={handleInputChange} 
+                                className="absolute w-full h-full opacity-0 cursor-pointer z-20"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="w-full h-px bg-slate-100 my-2"></div>
+
+                    {/* Box & Whisker Sliders */}
+                    <div className="space-y-6">
+                        <BoxPlotSlider 
+                            label="Mortgage Rate (Interest)" 
+                            name="mortgageRate" 
+                            value={inputs.mortgageRate} 
+                            min={0} max={14} step={0.1}
+                            rangeData={MARKET_RANGES.mortgage}
+                            onChange={handleInputChange}
+                            leftEmoji="📉" rightEmoji="📈"
+                            accentColor="bg-orange-500"
+                            thumbColor="bg-orange-500"
+                            labelColor="text-orange-600"
+                            dollarImpact={Math.round((totals.loanAmount * (inputs.mortgageRate/100)) / 12)}
+                            ticks={[2, 5, 8, 12]}
+                            inverse={true}
+                        />
+
+                        <BoxPlotSlider 
+                            label="Appreciation" 
+                            name="appreciation" 
+                            value={inputs.appreciation} 
+                            min={-5} max={15} step={0.1} 
+                            rangeData={MARKET_RANGES.appreciation}
+                            onChange={handleInputChange}
+                            leftEmoji="🏚️" rightEmoji="🚀"
+                            accentColor="bg-emerald-500"
+                            thumbColor="bg-emerald-500"
+                            labelColor="text-emerald-600"
+                            dollarImpact={Math.round((inputs.homeValue * (inputs.appreciation/100)) / 12)}
+                            ticks={[-2, 3, 8, 12]}
+                            inverse={false}
+                        />
+
+                        <BoxPlotSlider 
+                            label="Fees (Tax/Maint/Ins)" 
+                            name="feesRate" 
+                            value={inputs.feesRate} 
+                            min={0} max={5} step={0.1}
+                            rangeData={MARKET_RANGES.fees}
+                            onChange={handleInputChange}
+                            leftEmoji="⛺" rightEmoji="🏰"
+                            accentColor="bg-red-500"
+                            thumbColor="bg-red-500"
+                            labelColor="text-red-600"
+                            dollarImpact={Math.round((inputs.homeValue * (inputs.feesRate/100)) / 12)}
+                            ticks={[0, 1.5, 3, 4.5]}
+                            inverse={true}
+                        />
+
+                        <BoxPlotSlider 
+                            label="Inv. Return (Opp. Cost)" 
+                            name="stockReturn" 
+                            value={inputs.stockReturn} 
+                            min={-10} max={20} step={0.1} 
+                            rangeData={MARKET_RANGES.stock}
+                            onChange={handleInputChange}
+                            leftEmoji="🐻" rightEmoji="🐂"
+                            accentColor="bg-yellow-500"
+                            thumbColor="bg-yellow-500"
+                            labelColor="text-yellow-600"
+                            dollarImpact={Math.round((totals.downPayment * (inputs.stockReturn/100)) / 12)}
+                            ticks={[0, 7, 14]}
+                            inverse={false}
+                        />
+                    </div>
+                    
+                    {/* Down Payment */}
+                    <div className="pt-2 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <label className="flex justify-between text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-1">
+                            <span>Down Payment ({inputs.downPaymentPercent}%)</span>
+                            <span className="font-mono text-xs">{formatMoney(totals.downPayment)}</span>
+                        </label>
+                        <div className="relative h-3 flex items-center">
+                             <div className="absolute w-full h-2 bg-blue-200 rounded-full"></div>
+                             <div 
+                                className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2"
+                                style={{ left: `${inputs.downPaymentPercent}%` }}
+                            ></div>
+                            <input type="range" min="0" max="100" step="1" name="downPaymentPercent" value={inputs.downPaymentPercent} onChange={handleInputChange} className="absolute w-full h-full opacity-0 cursor-pointer z-20"/>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            {/* Rent */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Monthly Rent</label>
-              <div className="flex items-start gap-3 bg-slate-50 p-2 rounded border border-slate-100">
-                <div className="flex-grow pt-1">
-                   <input 
-                    type="range" min="500" max="15000" step="50" 
-                    name="monthlyRent" value={inputs.monthlyRent} onChange={handleInputChange} 
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                  />
+            {/* Speedometer Dial */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 text-center">
+                    Market Outlook
+                </label>
+                
+                <div className="relative w-48 h-28 overflow-hidden mt-2">
+                     <svg viewBox="0 0 200 110" className="w-full h-full">
+                        {/* Gauge Background (Arc) */}
+                        <defs>
+                            <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#ef4444" />
+                                <stop offset="50%" stopColor="#eab308" />
+                                <stop offset="100%" stopColor="#22c55e" />
+                            </linearGradient>
+                        </defs>
+                        <path 
+                            d="M 20 100 A 80 80 0 0 1 180 100" 
+                            fill="none" 
+                            stroke="url(#gaugeGradient)" 
+                            strokeWidth="20" 
+                            strokeLinecap="round"
+                        />
+                        
+                        {/* Ticks */}
+                        <path d="M 20 100 L 15 102" stroke="#cbd5e1" strokeWidth="2" />
+                        <path d="M 100 20 L 100 10" stroke="#cbd5e1" strokeWidth="2" />
+                        <path d="M 180 100 L 185 102" stroke="#cbd5e1" strokeWidth="2" />
+
+                        {/* Needle Group */}
+                        <g transform="translate(100, 100)">
+                            <g transform={`rotate(${(marketOutlookScore / 100) * 180 - 90})`} className="transition-transform duration-500 ease-out">
+                                <g className={marketOutlookScore > 85 ? 'needle-shake' : ''}>
+                                    <polygon points="-4,-10 0,-85 4,-10" fill="#1e293b" />
+                                    <circle cx="0" cy="0" r="6" fill="#1e293b" />
+                                </g>
+                            </g>
+                        </g>
+                     </svg>
+
+                     {/* Emoji Indicators on dial */}
+                     <div className="absolute bottom-2 left-4 text-lg">🧐</div>
+                     <div className="absolute bottom-2 right-4 text-lg">🤪</div>
                 </div>
-                <div className="flex flex-col items-end text-right min-w-[80px]">
-                    <span className="font-mono text-lg font-bold text-slate-900 leading-none">
-                        ${formatNumberWithCommas(inputs.monthlyRent)}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono mt-1">
-                        ${formatNumberWithCommas(Math.round(inputs.monthlyRent * 12 / 52))}/wk
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                        ${formatNumberWithCommas(inputs.monthlyRent * 12)}/yr
-                    </span>
+
+                <div className={`mt-1 font-bold text-sm transition-colors duration-300
+                     ${marketOutlookScore > 75 ? 'text-emerald-600' : marketOutlookScore < 40 ? 'text-red-600' : 'text-slate-600'}`}>
+                    {getOutlookLabel(marketOutlookScore)}
                 </div>
-              </div>
             </div>
-
-            <div className="w-full h-px bg-slate-100 my-2"></div>
-
-            {/* Compact Sliders */}
-            <div className="space-y-4">
-                <SliderWithMarkers 
-                    label="Mortgage Rate" 
-                    name="mortgageRate" 
-                    value={inputs.mortgageRate} 
-                    min={0} max={15} step={0.1} 
-                    onChange={handleInputChange}
-                    markers={[ { val: 3, label: 'Low' }, { val: 6.5, label: 'Avg' }, { val: 14, label: 'High' } ]}
-                    accentColor="accent-orange-500"
-                    labelColor="text-orange-600"
-                />
-
-                <SliderWithMarkers 
-                    label="Appreciation" 
-                    name="appreciation" 
-                    value={inputs.appreciation} 
-                    min={-2} max={12} step={0.1} 
-                    onChange={handleInputChange}
-                    markers={[ { val: 2, label: 'Slow' }, { val: 4, label: 'Avg' }, { val: 8, label: 'Hot' } ]}
-                    accentColor="accent-emerald-500"
-                    labelColor="text-emerald-600"
-                />
-
-                <SliderWithMarkers 
-                    label="Fees & Maintenance" 
-                    name="feesRate" 
-                    value={inputs.feesRate} 
-                    min={0} max={5} step={0.1} 
-                    onChange={handleInputChange}
-                    markers={[ { val: 1, label: 'Low' }, { val: 2.5, label: 'Avg' }, { val: 4, label: 'High' } ]}
-                    accentColor="accent-red-500"
-                    labelColor="text-red-600"
-                />
-
-                <SliderWithMarkers 
-                    label="Investments" 
-                    subLabel="(Opp. Cost)"
-                    name="stockReturn" 
-                    value={inputs.stockReturn} 
-                    min={0} max={15} step={0.1} 
-                    onChange={handleInputChange}
-                    markers={[ { val: 5, label: 'Safe' }, { val: 8.5, label: 'Avg' }, { val: 11, label: 'Risk' } ]}
-                    accentColor="accent-yellow-500"
-                    labelColor="text-yellow-600"
-                />
-            </div>
-            
-            {/* Down Payment */}
-            <div className="pt-2">
-              <label className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">
-                  <span>Down Payment ({inputs.downPaymentPercent}%)</span>
-                  <span className="text-blue-600 font-mono normal-case text-xs">{formatMoney(inputs.homeValue * inputs.downPaymentPercent / 100)}</span>
-              </label>
-              <input type="range" min="0" max="100" step="1" name="downPaymentPercent" value={inputs.downPaymentPercent} onChange={handleInputChange} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"/>
-            </div>
-          </div>
         </div>
 
         {/* RIGHT PANEL: SEESAW CANVAS */}
-        <div className="flex-grow bg-white rounded-xl shadow-lg border border-slate-200 relative overflow-hidden order-1 lg:order-2 min-h-[400px] flex flex-col">
+        <div className="flex-grow bg-white rounded-xl shadow-lg border border-slate-200 relative overflow-hidden order-1 lg:order-2 min-h-[500px] flex flex-col">
           
-          {/* Verdict Banner */}
-          <div className={`absolute top-4 left-0 right-0 mx-auto w-fit px-4 py-1.5 rounded-full font-bold text-xs md:text-sm shadow-sm z-10 transition-colors duration-500 border
-            ${tiltAngle > 0 ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-700 text-white border-slate-800'}`}>
-            {tiltAngle > 0 ? "HEAVY RENT → SWITCH TO MORTGAGE" : "HEAVY MORTGAGE → KEEP RENTING"}
-          </div>
+          <div className="flex-grow relative">
+            {/* Verdict Banner */}
+            <div className={`absolute top-6 left-0 right-0 mx-auto w-fit px-6 py-2 rounded-full font-bold text-sm md:text-base shadow-md z-10 border transition-colors duration-300
+                ${betterOption === 'Buying' ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-800 text-white border-slate-900'}`}>
+                {betterOption === 'Buying' ? "Consider a Mortgage" : "Keep Renting & Investing"}
+            </div>
 
-          <svg viewBox="0 0 800 600" className="w-full h-full flex-grow touch-none select-none">
-            
-            {/* Static Ground */}
-            <line x1="100" y1="550" x2="700" y2="550" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" />
-            
-            {/* Fulcrum */}
-            <path d={`M${pivotX} ${pivotY} L${pivotX - 30} ${pivotY + 60} L${pivotX + 30} ${pivotY + 60} Z`} fill="#64748b" />
-            <circle cx={pivotX} cy={pivotY} r="6" fill="#475569" />
-
-            {/* --- ROTATING GROUP --- */}
-            <g transform={`rotate(${tiltAngle}, ${pivotX}, ${pivotY})`} className="transition-transform duration-700 ease-out">
-              
-              {/* Beam */}
-              <rect x={pivotX - beamLength/2} y={pivotY - 10} width={beamLength} height={20} rx="10" fill="#334155" />
-              
-              {/* --- LEFT SIDE (BUY) --- */}
-              <g transform={`translate(${pivotX - beamLength/2 + 40}, ${pivotY - 10})`}>
-                {(() => {
-                  let currentHeight = 0;
-                  return breakdown.buyCosts.map((item) => {
-                    const h = item.value * dynamicScale;
-                    const y = -currentHeight - h;
-                    currentHeight += h;
-                    return (
-                      <g key={item.id}>
-                        <rect x="0" y={y} width="80" height={h} fill={item.color} stroke="white" strokeWidth="1" />
-                        {h > 20 && (
-                          <text x="40" y={y + h/2 + 4} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>
-                            {item.label}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  });
-                })()}
+            <svg viewBox="0 0 800 600" className="w-full h-full flex-grow touch-none select-none">
                 
-                {/* GREEN BALLOONS (Appreciation) */}
-                {(() => {
-                    const stackHeight = totals.grossBuyCost * dynamicScale;
-                    // Knot is anchored just above the stack
-                    const knotY = -stackHeight - 60; 
-                    const balloonCenterY = knotY - greenRadius;
+                {/* Static Ground */}
+                <line x1="100" y1="550" x2="700" y2="550" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" />
+                
+                {/* Fulcrum */}
+                <path d={`M${pivotX} ${pivotY} L${pivotX - 30} ${pivotY + 60} L${pivotX + 30} ${pivotY + 60} Z`} fill="#64748b" />
+                <circle cx={pivotX} cy={pivotY} r="6" fill="#475569" />
+
+                {/* --- ROTATING GROUP --- */}
+                <g transform={`rotate(${tiltAngle}, ${pivotX}, ${pivotY})`}>
+                
+                {/* Beam */}
+                <rect x={pivotX - beamLength/2} y={pivotY - 10} width={beamLength} height={20} rx="10" fill="#334155" />
+                
+                {/* --- LEFT SIDE (BUY) --- */}
+                <g transform={`translate(${pivotX - beamLength/2 + 40}, ${pivotY - 10})`}>
+                    {/* 1. Fees (Base) */}
+                    <rect 
+                        x="0" 
+                        y={-totals.feesCost * scaleFactor} 
+                        width="80" 
+                        height={totals.feesCost * scaleFactor} 
+                        fill="#ef4444" stroke="white" strokeWidth="1" 
+                    />
+                    {totals.feesCost * scaleFactor > 15 && (
+                        <g>
+                            {totals.feesCost * scaleFactor > 30 && <text x="40" y={(-totals.feesCost * scaleFactor)/2 - 2} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">FEES</text>}
+                            <text x="40" y={totals.feesCost * scaleFactor > 30 ? (-totals.feesCost * scaleFactor)/2 + 8 : (-totals.feesCost * scaleFactor)/2 + 4} textAnchor="middle" fill="white" fontSize="9">{formatMoney(totals.feesCost)}</text>
+                        </g>
+                    )}
+
+                    {/* 2. Interest (Stacked on Fees) */}
+                    <rect 
+                        x="0" 
+                        y={-(totals.feesCost + totals.interestCost) * scaleFactor} 
+                        width="80" 
+                        height={totals.interestCost * scaleFactor} 
+                        fill="#f97316" stroke="white" strokeWidth="1" 
+                    />
+                    {totals.interestCost * scaleFactor > 15 && (
+                        <g>
+                            {totals.interestCost * scaleFactor > 30 && <text x="40" y={-(totals.feesCost + totals.interestCost * 0.5) * scaleFactor - 2} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">INT.</text>}
+                            <text x="40" y={totals.interestCost * scaleFactor > 30 ? -(totals.feesCost + totals.interestCost * 0.5) * scaleFactor + 8 : -(totals.feesCost + totals.interestCost * 0.5) * scaleFactor + 4} textAnchor="middle" fill="white" fontSize="9">{formatMoney(totals.interestCost)}</text>
+                        </g>
+                    )}
+
+                    {/* 3. APPRECIATION LOGIC */}
+                    {totals.totalAppreciation >= 0 ? (
+                        // POSITIVE: Green Balloon Lifting
+                        <g>
+                            <line 
+                                x1="40" 
+                                y1={-(totals.grossBuyCost * scaleFactor)} 
+                                x2="40" 
+                                y2={-(totals.grossBuyCost * scaleFactor) - 50} 
+                                stroke="#cbd5e1" strokeWidth="2" 
+                            />
+                            <g transform={`translate(40, ${-(totals.grossBuyCost * scaleFactor) - 50})`}>
+                                <g transform={`rotate(${-tiltAngle})`}>
+                                    <circle cx="0" cy={-greenRadius - 4} r={greenRadius} fill="#10b981" opacity="0.2" />
+                                    <text x="0" y={-greenRadius} textAnchor="middle" dominantBaseline="central" fontSize={Math.max(20, greenRadius * 1.2)}>🏠</text>
+                                    <path d={`M 0 0 L -3 -6 L 3 -6 Z`} fill="#10b981" />
+                                    
+                                    <text x="0" y={-greenRadius + (greenRadius * 0.8) + 14} textAnchor="middle" fill="#047857" fontSize="9" fontWeight="bold">Appreciation</text>
+                                    <text x="0" y={-greenRadius + (greenRadius * 0.8) + 24} textAnchor="middle" fill="#047857" fontSize="10" fontWeight="bold">{formatMoney(totals.totalAppreciation)}</text>
+                                </g>
+                            </g>
+                        </g>
+                    ) : (
+                        // NEGATIVE: Heavy Green Block
+                        <g>
+                            <rect 
+                                x="0" 
+                                y={-(totals.grossBuyCost + Math.abs(totals.totalAppreciation)) * scaleFactor} 
+                                width="80" 
+                                height={Math.abs(totals.totalAppreciation) * scaleFactor} 
+                                fill="#d1fae5" stroke="#059669" strokeWidth="2" 
+                            />
+                            {Math.abs(totals.totalAppreciation) * scaleFactor > 15 && (
+                                <g>
+                                    {Math.abs(totals.totalAppreciation) * scaleFactor > 30 && <text x="40" y={-(totals.grossBuyCost + Math.abs(totals.totalAppreciation)*0.5) * scaleFactor - 2} textAnchor="middle" fill="#065f46" fontSize="10" fontWeight="bold">LOSS</text>}
+                                    <text x="40" y={Math.abs(totals.totalAppreciation) * scaleFactor > 30 ? -(totals.grossBuyCost + Math.abs(totals.totalAppreciation)*0.5) * scaleFactor + 10 : -(totals.grossBuyCost + Math.abs(totals.totalAppreciation)*0.5) * scaleFactor + 4} textAnchor="middle" fill="#065f46" fontSize="9">{formatMoney(Math.abs(totals.totalAppreciation))}</text>
+                                </g>
+                            )}
+                        </g>
+                    )}
                     
-                    return (
-                        <>
-                        <line x1="40" y1={-stackHeight} x2="40" y2={knotY} stroke="#cbd5e1" strokeWidth="2" />
-                        <g transform={`translate(0, 0)`}> {/* Using absolute coords calculated above */}
-                            <circle cx="40" cy={balloonCenterY} r={greenRadius} fill="#10b981" opacity="0.95" className="transition-all duration-500" />
-                            {/* Knot */}
-                            <path d={`M 40 ${balloonCenterY + greenRadius + 4} L 34 ${balloonCenterY + greenRadius - 6} L 46 ${balloonCenterY + greenRadius - 6} Z`} fill="#10b981" />
-                            
-                            <text x="40" y={balloonCenterY - 6} textAnchor="middle" fill="white" fontSize={greenRadius > 40 ? 12 : 10} fontWeight="bold">APPR.</text>
-                            <text x="40" y={balloonCenterY + 8} textAnchor="middle" fill="white" fontSize={greenRadius > 40 ? 11 : 9}>{formatMoney(totals.totalAppreciation)}</text>
-                        </g>
-                        </>
-                    )
-                })()}
-
-                {/* Net Cost Label */}
-                <g transform="translate(40, 35)">
-                    <text y="0" textAnchor="middle" fill="#475569" fontSize="10" fontWeight="bold" letterSpacing="0.5">BUY NET COST</text>
-                    <text y="16" textAnchor="middle" fill="#0f172a" fontSize="14" fontWeight="bold">{formatMoney(totals.netBuyCost)}</text>
+                    {/* Net Cost Label */}
+                    <g transform={`translate(40, 35) rotate(${-tiltAngle})`}>
+                        <text y="0" textAnchor="middle" fill="#475569" fontSize="10" fontWeight="bold" letterSpacing="0.5">BUY NET</text>
+                        <text y="16" textAnchor="middle" fill="#0f172a" fontSize="14" fontWeight="bold">{formatMoney(totals.netBuyCost)}</text>
+                    </g>
                 </g>
-              </g>
 
-              {/* --- RIGHT SIDE (RENT) --- */}
-              <g transform={`translate(${pivotX + beamLength/2 - 120}, ${pivotY - 10})`}>
-                {/* Rent Block */}
-                <rect 
-                  x="0" 
-                  y={-totals.annualRent * dynamicScale} 
-                  width="80" 
-                  height={totals.annualRent * dynamicScale} 
-                  fill="#64748b" 
-                  stroke="white" 
-                  strokeWidth="1" 
-                />
-                <text x="40" y={(-totals.annualRent * dynamicScale)/2 + 4} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{textShadow: '0px 1px 2px rgba(0,0,0,0.3)'}}>RENT</text>
+                {/* --- RIGHT SIDE (RENT) --- */}
+                <g transform={`translate(${pivotX + beamLength/2 - 120}, ${pivotY - 10})`}>
+                    {/* 1. Rent Block */}
+                    <rect 
+                    x="0" 
+                    y={-totals.annualRent * scaleFactor} 
+                    width="80" 
+                    height={totals.annualRent * scaleFactor} 
+                    fill="#64748b" 
+                    stroke="white" 
+                    strokeWidth="1" 
+                    />
+                    {totals.annualRent * scaleFactor > 15 && (
+                        <g>
+                            {totals.annualRent * scaleFactor > 30 && <text x="40" y={(-totals.annualRent * scaleFactor)/2 - 2} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">RENT</text>}
+                            <text x="40" y={totals.annualRent * scaleFactor > 30 ? (-totals.annualRent * scaleFactor)/2 + 10 : (-totals.annualRent * scaleFactor)/2 + 4} textAnchor="middle" fill="white" fontSize="10">{formatMoney(totals.annualRent)}</text>
+                        </g>
+                    )}
+                    
+                    {/* 2. INVESTMENT LOGIC */}
+                    {totals.investmentReturn >= 0 ? (
+                        // POSITIVE: Yellow Balloon
+                        <g>
+                            <line x1="40" y1={-totals.annualRent * scaleFactor} x2="40" y2={-totals.annualRent * scaleFactor - 50} stroke="#cbd5e1" strokeWidth="2" />
+                            <g transform={`translate(40, ${-totals.annualRent * scaleFactor - 50})`}>
+                                <g transform={`rotate(${-tiltAngle})`}>
+                                    <circle cx="0" cy={-yellowRadius - 4} r={yellowRadius} fill="#eab308" opacity="0.2" />
+                                    <text x="0" y={-yellowRadius} textAnchor="middle" dominantBaseline="central" fontSize={Math.max(20, yellowRadius * 1.2)}>📈</text>
+                                    <path d={`M 0 0 L -5 -10 L 5 -10 Z`} fill="#eab308" />
+                                    <text x="0" y={-yellowRadius + (yellowRadius * 0.8) + 12} textAnchor="middle" fill="#854d0e" fontSize="10" fontWeight="bold">Invest</text>
+                                    <text x="0" y={-yellowRadius + (yellowRadius * 0.8) + 22} textAnchor="middle" fill="#854d0e" fontSize="10" fontWeight="bold">{formatMoney(totals.investmentReturn)}</text>
+                                </g>
+                            </g>
+                        </g>
+                    ) : (
+                        // NEGATIVE: Heavy Yellow Block
+                        <g>
+                            <rect 
+                                x="0" 
+                                y={-(totals.annualRent + Math.abs(totals.investmentReturn)) * scaleFactor} 
+                                width="80" 
+                                height={Math.abs(totals.investmentReturn) * scaleFactor} 
+                                fill="#fef08a" stroke="#ca8a04" strokeWidth="2" 
+                            />
+                            {Math.abs(totals.investmentReturn) * scaleFactor > 15 && (
+                                <g>
+                                    {Math.abs(totals.investmentReturn) * scaleFactor > 30 && <text x="40" y={-(totals.annualRent + Math.abs(totals.investmentReturn)*0.5) * scaleFactor - 2} textAnchor="middle" fill="#854d0e" fontSize="10" fontWeight="bold">LOSS</text>}
+                                    <text x="40" y={Math.abs(totals.investmentReturn) * scaleFactor > 30 ? -(totals.annualRent + Math.abs(totals.investmentReturn)*0.5) * scaleFactor + 10 : -(totals.annualRent + Math.abs(totals.investmentReturn)*0.5) * scaleFactor + 4} textAnchor="middle" fill="#854d0e" fontSize="9">{formatMoney(Math.abs(totals.investmentReturn))}</text>
+                                </g>
+                            )}
+                        </g>
+                    )}
+
+                    {/* Rent Label */}
+                    <g transform={`translate(40, 35) rotate(${-tiltAngle})`}>
+                        <text y="0" textAnchor="middle" fill="#475569" fontSize="10" fontWeight="bold" letterSpacing="0.5">RENT NET</text>
+                        <text y="16" textAnchor="middle" fill="#0f172a" fontSize="14" fontWeight="bold">{formatMoney(totals.netRentCost)}</text>
+                    </g>
+                </g>
+
+                </g>
+            </svg>
+          </div>
+            
+            {/* Bottom Net Difference Indicator */}
+            <div className="bg-slate-50 border-t border-slate-200 p-3 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-6 z-10 shrink-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase font-bold text-slate-500">Annual Difference:</span>
+                    <span className={`text-xl font-mono font-bold ${netDiff > 0 ? 'text-blue-600' : 'text-slate-700'}`}>
+                        {formatMoney(Math.abs(netDiff))}
+                    </span>
+                    <span className="text-sm font-medium text-slate-600">
+                        in favor of {betterOption}
+                    </span>
+                </div>
                 
-                {/* YELLOW BALLOONS (Investments) */}
-                {(() => {
-                    const stackHeight = totals.annualRent * dynamicScale;
-                    const knotY = -stackHeight - 50;
-                    const balloonCenterY = knotY - yellowRadius;
+                {/* Divider */}
+                <div className="hidden sm:block w-px h-8 bg-slate-300"></div>
+                
+                {/* Net Outcome for Buying (Range) */}
+                <div className="flex flex-col items-center sm:items-start">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wide">Net outcome for Buying</span>
+                    <div className="flex items-baseline gap-4 text-xs font-mono text-slate-600">
+                        <div className="flex flex-col items-center">
+                            <span>({formatRangeVal(rangeEstimates.conservative)})</span>
+                            <span className="text-[9px] text-slate-400 font-sans font-bold uppercase">Conservative</span>
+                        </div>
+                        <span className="text-slate-300 self-center">–</span>
+                        <div className="flex flex-col items-center">
+                            <span>({formatRangeVal(rangeEstimates.optimistic)})</span>
+                            <span className="text-[9px] text-slate-400 font-sans font-bold uppercase">Optimistic</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                    return (
-                        <>
-                        <line x1="40" y1={-stackHeight} x2="40" y2={knotY} stroke="#cbd5e1" strokeWidth="2" />
-                        <g transform={`translate(0, 0)`}>
-                            {/* Main Balloon */}
-                            <circle cx="40" cy={balloonCenterY} r={yellowRadius} fill="#eab308" opacity="0.95" className="transition-all duration-500" />
-                            <path d={`M 40 ${balloonCenterY + yellowRadius + 4} L 35 ${balloonCenterY + yellowRadius - 6} L 45 ${balloonCenterY + yellowRadius - 6} Z`} fill="#eab308" />
-                            
-                            <text x="40" y={balloonCenterY - 6} textAnchor="middle" fill="white" fontSize={yellowRadius > 40 ? 11 : 10} fontWeight="bold">INVEST.</text>
-                            <text x="40" y={balloonCenterY + 8} textAnchor="middle" fill="white" fontSize={yellowRadius > 40 ? 10 : 9}>{formatMoney(totals.investmentReturn)}</text>
-                        </g>
-                        </>
-                    )
-                })()}
-
-                {/* Rent Label */}
-                <g transform="translate(40, 35)">
-                    <text y="0" textAnchor="middle" fill="#475569" fontSize="10" fontWeight="bold" letterSpacing="0.5">RENT NET COST</text>
-                    <text y="16" textAnchor="middle" fill="#0f172a" fontSize="14" fontWeight="bold">{formatMoney(totals.netRentCost)}</text>
-                </g>
-              </g>
-
-            </g>
-
-             {/* Tipping Markers */}
-             <text x={pivotX - 200} y="580" textAnchor="middle" fill={tiltAngle < 0 ? "#334155" : "#cbd5e1"} fontSize="12" fontWeight="bold">KEEP RENTING</text>
-             <text x={pivotX + 200} y="580" textAnchor="middle" fill={tiltAngle > 0 ? "#2563eb" : "#cbd5e1"} fontSize="12" fontWeight="bold">BUY (MORTGAGE)</text>
-
-          </svg>
+            {/* Disclaimer Footer */}
+            <footer className="bg-slate-100 border-t border-slate-200 p-4 text-[10px] md:text-xs text-slate-500 leading-relaxed">
+                <p className="font-bold mb-1">Buying a house isn't always the best financial move.</p>
+                <p className="mb-2">How much would you really pay to not have to rent?</p>
+                <p className="italic opacity-80">
+                    <span className="font-bold">DISCLAIMER:</span> If this tells you to keep renting, you should probably keep renting. If it tells you to consider a mortgage, remember that markets can change dramatically and unpredictably over time. This tool is for educational purposes only.
+                </p>
+            </footer>
 
         </div>
       </div>
@@ -485,11 +635,103 @@ const RentVsBuySeesaw = () => {
   );
 };
 
-// Render the application
-const rootElement = document.getElementById('root');
-const root = ReactDOM.createRoot(rootElement);
-root.render(<RentVsBuySeesaw />);
-</script>
+// Slider with Box Plot & Dynamic Emoji Thumb
+const BoxPlotSlider = ({ 
+    label, name, value, min, max, step, 
+    onChange, leftEmoji, rightEmoji, accentColor, thumbColor, labelColor, dollarImpact, rangeData, ticks, inverse 
+}) => {
+    
+    const getPercent = (v) => ((v - min) / (max - min)) * 100;
+    
+    // Calculate layout positions
+    const boxStart = getPercent(rangeData.q1);
+    const boxWidth = getPercent(rangeData.q3) - boxStart;
+    const medianPos = getPercent(rangeData.med);
+    const minPos = getPercent(rangeData.min);
+    const maxPos = getPercent(rangeData.max);
 
-</body>
-</html>
+    // Thumb Logic
+    const currentPos = getPercent(value);
+    
+    let thumbContent = null; 
+    let thumbClass = thumbColor; 
+    
+    const isBelowWhisker = value < (rangeData.min - (rangeData.max - rangeData.min) * 0.1);
+    const isAboveWhisker = value > (rangeData.max + (rangeData.max - rangeData.min) * 0.1);
+
+    if (inverse) {
+        if (isBelowWhisker) thumbContent = '🤪';
+        else if (isAboveWhisker) thumbContent = '🧐';
+    } else {
+        if (isBelowWhisker) thumbContent = '🧐';
+        else if (isAboveWhisker) thumbContent = '🤪';
+    }
+
+    return (
+        <div>
+            <div className="flex justify-between items-end mb-1">
+                <label className={`text-[11px] font-bold uppercase tracking-wide ${labelColor}`}>
+                    {label}
+                </label>
+                <div className="text-right">
+                     <span className="font-mono text-xs font-bold text-slate-900">{value}%</span>
+                     {dollarImpact !== undefined && (
+                        <span className={`ml-2 font-mono text-[10px] ${dollarImpact < 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                            {dollarImpact < 0 ? '-' : '+'}${new Intl.NumberFormat('en-US').format(Math.abs(dollarImpact))}/mo
+                        </span>
+                     )}
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-2 relative">
+                <span className="text-sm grayscale opacity-70">{leftEmoji}</span>
+                
+                <div className="relative flex-grow h-8 flex flex-col justify-center">
+                    <div className="absolute top-2 left-0 right-0 h-2 pointer-events-none">
+                        <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 rounded-full transform -translate-y-1/2"></div>
+                        <div className="absolute top-1/2 left-0 h-px bg-slate-400 z-0" style={{ left: `${minPos}%`, right: `${100 - maxPos}%` }}></div>
+                        <div className="absolute top-1/2 h-2 w-px bg-slate-400 transform -translate-y-1/2 z-0" style={{ left: `${minPos}%` }}></div>
+                        <div className="absolute top-1/2 h-2 w-px bg-slate-400 transform -translate-y-1/2 z-0" style={{ left: `${maxPos}%` }}></div>
+                        <div className={`absolute top-1/2 h-3 transform -translate-y-1/2 opacity-30 z-0 ${accentColor}`} style={{ left: `${boxStart}%`, width: `${boxWidth}%` }}></div>
+                        <div className={`absolute top-1/2 h-3 w-0.5 transform -translate-y-1/2 opacity-50 z-0 ${accentColor}`} style={{ left: `${medianPos}%` }}></div>
+                    </div>
+                    
+                    {/* Custom Thumb - NO TRANSITION on left position to prevent lag */}
+                    <div 
+                        className={`absolute top-1/2 h-5 w-5 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-sm bg-white border border-slate-200 transition-transform duration-200
+                            ${thumbContent ? 'scale-125' : 'scale-100'}
+                        `}
+                        style={{ left: `${currentPos}%` }}
+                    >
+                        {thumbContent ? <span>{thumbContent}</span> : <div className={`w-3 h-3 rounded-full ${thumbClass}`}></div>}
+                    </div>
+
+                    <input 
+                        type="range" 
+                        min={min} max={max} step={step} 
+                        name={name} 
+                        value={value} 
+                        onChange={onChange} 
+                        className="relative z-20 w-full h-8 opacity-0 cursor-pointer margin-0 padding-0"
+                    />
+
+                    {ticks && (
+                        <div className="absolute bottom-0 left-0 w-full h-3 text-[8px] text-slate-400 font-mono pointer-events-none">
+                            {ticks.map(t => (
+                                <div key={t} className="absolute bottom-0 transform -translate-x-1/2 flex flex-col items-center" style={{ left: `${getPercent(t)}%` }}>
+                                    <div className="h-1 w-px bg-slate-300 mb-0.5"></div>
+                                    <span>{t}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                
+                <span className="text-sm grayscale opacity-70">{rightEmoji}</span>
+            </div>
+        </div>
+    );
+};
+
+
+export default RentVsBuySeesaw;
