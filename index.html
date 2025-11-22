@@ -43,49 +43,64 @@
         const { useState, useEffect, useMemo } = React;
 
         // --- MARKET DATA STRUCTURE ---
+
         const MARKET_DATA = {
             "Global": {
-                investmentReturn: [2.0, 4.5, 7.0, 10.0],
-                mortgageRate:     [1.5, 3.5, 7.0, 11.0],
-                propertyTypes: {
+                "investmentReturn": [2.0, 4.5, 7.0, 10.0],
+                "mortgageRate":     [1.5, 3.5, 7.0, 11.0],
+                "propertyTypes": {
                     "house": {
-                        appreciation: [-1.0, 1.5, 4.0, 7.5],
-                        feesRate:     [0.7, 1.2, 2.2, 3.3]
+                        "appreciation": [-1.0, 1.5, 4.0, 7.5],
+                        "feesRate":     [0.7, 1.2, 2.2, 3.3]
                     },
                     "apartment": {
-                        appreciation: [-2.0, 1.0, 4.0, 8.0],
-                        feesRate:     [0.9, 1.5, 2.5, 3.6]
+                        "appreciation": [-2.0, 1.0, 4.0, 8.0],
+                        "feesRate":     [0.9, 1.5, 2.5, 3.6]
                     }
                 }
             },
             "Australia": {
-                investmentReturn: [3.0, 5.0, 7.0, 9.0],
-                mortgageRate:     [2.5, 4.5, 7.0, 10.0],
-                propertyTypes: {
-                    "house": {
-                        appreciation: [0.0, 2.0, 4.5, 7.0],
-                        feesRate:     [0.8, 1.3, 2.2, 3.0]
-                    },
-                    "apartment": {
-                        appreciation: [-1.0, 1.0, 4.0, 7.0],
-                        feesRate:     [1.0, 1.6, 2.6, 3.5]
-                    }
+              "investmentReturn": [3.0, 5.5, 8.0, 11.0],
+              "mortgageRate":     [2.0, 4.5, 7.5, 11.0],
+              "propertyTypes": {
+                "house": {
+                  "appreciation": [-2.0, 2.0, 5.0, 8.0],
+                  "feesRate":     [0.2, 0.4, 0.7, 1.5]
+                },
+                "apartment": {
+                  "appreciation": [-3.0, 1.5, 4.5, 7.5],
+                  "feesRate":     [0.5, 0.9, 1.6, 2.5]
                 }
+              }
             },
             "United States": {
-                investmentReturn: [2.0, 4.5, 7.5, 10.5],
-                mortgageRate:     [2.0, 4.0, 7.5, 11.0],
-                propertyTypes: {
-                    "house": {
-                        appreciation: [0.0, 2.0, 4.5, 7.0],
-                        feesRate:     [1.0, 1.5, 3.0, 4.0]
-                    },
-                    "apartment": {
-                        appreciation: [-1.0, 1.0, 4.0, 7.0],
-                        feesRate:     [1.0, 1.7, 3.0, 4.2]
-                    }
+              "investmentReturn": [3.0, 6.0, 9.0, 12.0],
+              "mortgageRate":     [2.5, 4.0, 7.0, 11.0],
+              "propertyTypes": {
+                "house": {
+                  "appreciation": [-4.0, 2.0, 5.0, 8.0],
+                  "feesRate":     [1.0, 1.7, 2.8, 4.2]
+                },
+                "apartment": {
+                  "appreciation": [-5.0, 1.5, 4.5, 7.0],
+                  "feesRate":     [1.2, 2.0, 3.2, 4.5]
                 }
+              }
+            },"United Kingdom": {
+              "investmentReturn": [2.5, 4.5, 6.5, 9.0],
+              "mortgageRate":     [1.5, 3.5, 6.0, 9.0],
+              "propertyTypes": {
+                "house": {
+                  "appreciation": [-3.0, 2.0, 4.5, 7.0],
+                  "feesRate":     [0.4, 0.7, 1.3, 2.0]
+                },
+                "apartment": {
+                  "appreciation": [-4.0, 1.5, 4.0, 6.5],
+                  "feesRate":     [0.6, 1.0, 1.7, 2.5]
+                }
+              }
             }
+
         };
 
         const RentVsBuySeesaw = () => {
