@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mortgage Equation</title>
     
     <!-- Tailwind CSS -->
@@ -17,9 +17,13 @@
 
     <style>
         /* Custom styles */
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 0; height: 0; opacity: 0; }
-        input[type=range]::-moz-range-thumb { width: 0; height: 0; opacity: 0; border: none; }
+        body { margin: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; }
         
+        /* Hide scrollbar for compact stats */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Animation */
         @keyframes shake-needle {
           0% { transform: rotate(0deg); } 
           25% { transform: rotate(5deg); } 
@@ -28,12 +32,40 @@
           100% { transform: rotate(0deg); }
         }
         .needle-shake { animation: shake-needle 0.15s infinite linear; transform-origin: 0 0; }
-        
-        body { margin: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; }
-        
-        /* Hide scrollbar for compact stats */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- CROSS BROWSER SLIDER RESET --- */
+        /* This ensures the invisible input actually works on iOS/Firefox by stripping default styling */
+        .range-input {
+            -webkit-appearance: none; /* Hides the slider so that custom slider can be made */
+            appearance: none;
+            width: 100%; /* Specific width is required for Firefox. */
+            background: transparent; /* Otherwise white in Chrome */
+            cursor: pointer;
+            touch-action: none; /* Prevents scroll when dragging on mobile */
+        }
+
+        .range-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: transparent;
+            cursor: pointer;
+            margin-top: -8px; 
+        }
+
+        .range-input::-moz-range-thumb {
+            height: 20px;
+            width: 20px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .range-input:focus {
+            outline: none;
+        }
     </style>
 </head>
 <body>
@@ -335,11 +367,12 @@
                         <div className="relative h-6 flex items-center mt-2">
                             <div className="absolute w-full h-2 bg-slate-200 rounded-full"></div>
                             <div className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${Math.min(100, (inputs.homeValue / maxHomePrice) * 100)}%` }}></div>
+                            {/* UPDATED: Added range-input class */}
                             <input type="range" min="100000" max={maxHomePrice} step="5000" name="homeValue" value={inputs.homeValue} onChange={(e) => {
                                 const val = parseFloat(e.target.value);
                                 setInputs(p => ({...p, homeValue: val}));
                                 setHomeValueDisplay(formatNumberWithCommas(val));
-                            }} className="absolute w-full h-full opacity-0 cursor-pointer z-20" />
+                            }} className="absolute w-full h-full opacity-0 z-20 range-input" />
                         </div>
                     </div>
                     
@@ -359,7 +392,8 @@
                         <div className="relative h-6 flex items-center">
                             <div className="absolute w-full h-2 bg-slate-200 rounded-full"></div>
                             <div className="absolute h-4 w-4 bg-slate-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${Math.min(100, (inputs.monthlyRent / 10000) * 100)}%` }}></div>
-                            <input type="range" min="0" max="10000" step="50" name="monthlyRent" value={inputs.monthlyRent} onChange={(e) => setInputs(p => ({...p, monthlyRent: parseFloat(e.target.value)||0}))} className="absolute w-full h-full opacity-0 cursor-pointer z-20" />
+                            {/* UPDATED: Added range-input class */}
+                            <input type="range" min="0" max="10000" step="50" name="monthlyRent" value={inputs.monthlyRent} onChange={(e) => setInputs(p => ({...p, monthlyRent: parseFloat(e.target.value)||0}))} className="absolute w-full h-full opacity-0 z-20 range-input" />
                         </div>
                     </div>
                 </div>
@@ -380,7 +414,8 @@
                         <div className="relative h-3 flex items-center">
                             <div className="absolute w-full h-2 bg-blue-200 rounded-full"></div>
                             <div className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${inputs.downPaymentPercent}%` }}></div>
-                            <input type="range" min="0" max="100" step="1" name="downPaymentPercent" value={inputs.downPaymentPercent} onChange={(e) => setInputs(p => ({...p, downPaymentPercent: parseFloat(e.target.value)}))} className="absolute w-full h-full opacity-0 cursor-pointer z-20"/>
+                            {/* UPDATED: Added range-input class */}
+                            <input type="range" min="0" max="100" step="1" name="downPaymentPercent" value={inputs.downPaymentPercent} onChange={(e) => setInputs(p => ({...p, downPaymentPercent: parseFloat(e.target.value)}))} className="absolute w-full h-full opacity-0 z-20 range-input"/>
                         </div>
                     </div>
 
@@ -462,23 +497,58 @@
 
                     <div className="order-1 lg:order-2 flex flex-col gap-2">
                         
-                        {/* FULL EQUATION BREAKDOWN */}
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 text-[10px] sm:text-xs font-mono leading-tight text-slate-600 flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center gap-x-1.5">
-                                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span><span className="font-bold text-slate-800">Interest</span> <span className="text-slate-400">({formatKSimple(totals.loanAmount)}×{inputs.mortgageRate}%)</span></div>
-                                <span>+</span>
-                                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="font-bold text-slate-800">Fees</span> <span className="text-slate-400">({formatKSimple(inputs.homeValue)}×{inputs.feesRate}%)</span></div>
-                                <span>{totals.totalAppreciation >= 0 ? '-' : '+'}</span>
-                                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="font-bold text-slate-800">{totals.totalAppreciation >= 0 ? 'Appreciation' : 'Loss'}</span> <span className="text-slate-400">({formatKSimple(inputs.homeValue)}×{Math.abs(inputs.appreciation)}%)</span></div>
-                                <span className="font-bold text-slate-900 ml-auto border-b border-slate-300">= {formatMoney(totals.netBuyCost)}</span>
+                        {/* FULL EQUATION BREAKDOWN (UPDATED UI) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Buying Card */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-col gap-2">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1 mb-1">Cost of Buying</div>
+                                <div className="text-[10px] sm:text-xs font-mono leading-tight text-slate-600 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span><span className="font-bold text-slate-700">Interest</span></div>
+                                         <span className="text-slate-500">({formatKSimple(totals.loanAmount)}×{inputs.mortgageRate}%)</span>
+                                         <span className="font-medium">{formatMoney(totals.interestCost)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="font-bold text-slate-700">Fees</span></div>
+                                         <span className="text-slate-500">({formatKSimple(inputs.homeValue)}×{inputs.feesRate}%)</span>
+                                         <span className="font-medium"> + {formatMoney(totals.feesCost)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="font-bold text-slate-700">{totals.totalAppreciation >= 0 ? 'Appreciation' : 'Depreciation'}</span></div>
+                                         <span className="text-slate-500">({formatKSimple(inputs.homeValue)}×{inputs.appreciation}%)</span>
+                                         <span className="font-medium text-emerald-600"> {totals.totalAppreciation >= 0 ? '-' : '+'} {formatMoney(Math.abs(totals.totalAppreciation))}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-1">
+                                        <span className="font-bold text-slate-900">Net Annual Cost</span>
+                                        <span className="font-bold text-slate-900 text-sm">= {formatMoney(totals.netBuyCost)}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-x-1.5 border-t border-slate-100 pt-2">
-                                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500"></span><span className="font-bold text-slate-800">Rent</span> <span className="text-slate-400">({formatMoney(inputs.monthlyRent)}×12)</span></div>
-                                <span>{totals.investmentReturn >= 0 ? '-' : '+'}</span>
-                                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500"></span><span className="font-bold text-slate-800">{totals.investmentReturn >= 0 ? 'Return' : 'Loss'}</span> <span className="text-slate-400">({formatKSimple(totals.downPayment)}×{Math.abs(inputs.stockReturn)}%)</span></div>
-                                <span className="font-bold text-slate-900 ml-auto border-b border-slate-300">= {formatMoney(totals.netRentCost)}</span>
+
+                            {/* Renting Card */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-col gap-2">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1 mb-1">Cost of Renting</div>
+                                <div className="text-[10px] sm:text-xs font-mono leading-tight text-slate-600 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500"></span><span className="font-bold text-slate-700">Rent</span></div>
+                                         <span className="text-slate-500">({formatMoney(inputs.monthlyRent)}×12)</span>
+                                         <span className="font-medium">{formatMoney(totals.annualRent)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500"></span><span className="font-bold text-slate-700">{totals.investmentReturn >= 0 ? 'Inv. Return' : 'Inv. Loss'}</span></div>
+                                         <span className="text-slate-500">({formatKSimple(totals.downPayment)}×{inputs.stockReturn}%)</span>
+                                         <span className="font-medium text-yellow-600"> {totals.investmentReturn >= 0 ? '-' : '+'} {formatMoney(Math.abs(totals.investmentReturn))}</span>
+                                    </div>
+                                    {/* Spacer to align with buying card if needed, or just let it float */}
+                                    <div className="h-5 hidden sm:block"></div> 
+                                    <div className="flex justify-between items-center pt-1 mt-auto">
+                                        <span className="font-bold text-slate-900">Net Annual Cost</span>
+                                        <span className="font-bold text-slate-900 text-sm">= {formatMoney(totals.netRentCost)}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
 
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative overflow-hidden w-full aspect-[2/1] flex flex-col">
                             <div className={`absolute top-4 left-0 right-0 mx-auto w-fit px-4 py-1.5 rounded-full font-bold text-xs md:text-sm shadow-md z-10 border transition-colors duration-300
@@ -633,7 +703,7 @@
                             <span className="font-mono text-xs font-bold text-slate-900">{value}%</span>
                             {dollarImpact !== undefined && (
                                 <span className={`ml-2 font-mono text-[10px] ${dollarImpact < 0 ? 'text-red-500' : 'text-slate-400'}`}>
-                                    {dollarImpact < 0 ? '-' : '+'}${new Intl.NumberFormat('en-US').format(Math.abs(dollarImpact))}/mo
+                                    {dollarImpact < 0 ? '-' : '+'}{new Intl.NumberFormat('en-US').format(Math.abs(dollarImpact))}/mo
                                 </span>
                             )}
                         </div>
@@ -652,7 +722,8 @@
                             <div className={`absolute top-1/2 h-5 w-5 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-sm bg-white border border-slate-200 transition-transform duration-200 ${thumbContent ? 'scale-125' : 'scale-100'}`} style={{ left: `${currentPos}%` }}>
                                 {thumbContent ? <span>{thumbContent}</span> : <div className={`w-3 h-3 rounded-full ${thumbClass}`}></div>}
                             </div>
-                            <input type="range" min={min} max={max} step={step} name={name} value={value} onChange={onChange} className="relative z-20 w-full h-8 opacity-0 cursor-pointer margin-0 padding-0" />
+                            {/* UPDATED: Added range-input class */}
+                            <input type="range" min={min} max={max} step={step} name={name} value={value} onChange={onChange} className="relative z-20 w-full h-8 opacity-0 cursor-pointer margin-0 padding-0 range-input" />
                             {ticks && (
                                 <div className="absolute bottom-0 left-0 w-full h-3 text-[8px] text-slate-400 font-mono pointer-events-none">
                                     {ticks.map(t => (
