@@ -857,10 +857,10 @@
                                                     {/* Width 320. Items at -105, 0, 105. Signs at -52.5, 52.5. */}
                                                     <rect x={-leftPlateWidth/2} y="0" width={leftPlateWidth} height={plateHeight} rx="3" fill="white" stroke="black" strokeWidth="2" />
                                                     <PlatformItem x={-105} y={0} label="Interest" labelColor="#f97316" value={totals.interestCost} color="#f97316" scaleFactor={scaleFactor} isBalloon={false} />
-                                                    <text x={-52.5} y={23} textAnchor="middle" fill="black" fontSize="32" fontWeight="900">+</text>
-                                                    <PlatformItem x={0} y={0} label="Fees" labelColor="#ef4444" value={totals.feesCost} color="#ef4444" scaleFactor={scaleFactor} isBalloon={false} />
+                                                    <text x={-58} y={23} textAnchor="middle" fill="black" fontSize="25" fontWeight="900">+</text>
+                                                    <PlatformItem x={-7} y={0} label="Expenses" labelColor="#ef4444" value={totals.feesCost} color="#ef4444" scaleFactor={scaleFactor} isBalloon={false} />
                                                     
-                                                    <text x={totals.totalAppreciation >= 0 ? 36 : 42} y={25} textAnchor="middle" fill= "black" fontSize="32" fontWeight="900">{totals.totalAppreciation >= 0 ? '-' : '+'}</text>
+                                                    <text x={totals.totalAppreciation >= 0 ? 43 : 52} y={25} textAnchor="middle" fill= "black" fontSize="25" fontWeight="900">{totals.totalAppreciation >= 0 ? '-' : '+'}</text>
                                                     
                                                     <PlatformItem x={105} y={0} label={totals.totalAppreciation >= 0 ? "Appreciation" : "Loss"} labelColor={totals.totalAppreciation >= 0 ? "#10b981" : "#059669"} value={totals.totalAppreciation} color={totals.totalAppreciation >= 0 ? "#10b981" : "#d1fae5"} scaleFactor={scaleFactor} balloonRadius={greenRadius} isBalloon={true} emoji="🏠" />
                                                 </g>
@@ -886,7 +886,7 @@
                             <div className="flex items-center gap-2 pr-4 border-r border-slate-100 shrink-0">
                                 <span className="font-bold text-slate-500 uppercase text-[10px]">Net Difference with a Mortgage:</span>
                                 <span className={`font-mono font-bold text-sm ${netDiff > 0 ? 'text-blue-600' : 'text-slate-700'}`}>
-                                    {formatMoney(netDiff)}
+                                    {netDiff > 0 ? '+' :''}{formatMoney(netDiff)}
                                 </span>
                             </div>
                             <div className="flex items-center gap-3 text-slate-500 font-mono shrink-0">
