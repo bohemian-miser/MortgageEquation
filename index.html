@@ -137,24 +137,163 @@
 
         };
 
-        const RentVsBuySeesaw = () => {
-            // --- State ---
-            const [location, setLocation] = useState("Global");
-            const [propertyType, setPropertyType] = useState("house");
-            const [activeTab, setActiveTab] = useState("property"); 
+        const DEFAULT_INPUTS = {
+            homeValue: 1000000,
+            downPaymentPercent: 20,
+            mortgageRate: 5.4,
+            stockReturn: 7.5,
+            appreciation: 4.0,
+            feesRate: 2.2,
+            monthlyRent: 2500,
+        };
 
-            const [inputs, setInputs] = useState({
-                homeValue: 500000,
-                downPaymentPercent: 20,
-                mortgageRate: 6.5,
-                stockReturn: 8.5,
-                appreciation: 4.0,
-                feesRate: 2.2,
-                monthlyRent: 2500,
+        // --- URL STATE MANAGEMENT (XSS SAFE) ---
+        
+        // 1. Safe parsing (Read)
+        const getParamsFromURL = () => {
+            const params = new URLSearchParams(window.location.search);
+            
+            // Helper to safely parse float or return default
+            const getFloat = (key, def) => {
+                const val = parseFloat(params.get(key));
+                return isNaN(val) ? def : val;
+            };
+
+            // Helper to strictly validate strings against whitelist
+            const getString = (key, validOptions, def) => {
+                const val = params.get(key);
+                return (val && validOptions.includes(val)) ? val : def;
+            };
+
+            const safeLocation = getString('location', Object.keys(MARKET_DATA), "Global");
+            const safeType = getString('type', ['house', 'apartment'], "house");
+            const inputs = {
+                homeValue: getFloat('homeValue', DEFAULT_INPUTS.homeValue),
+                downPaymentPercent: getFloat('downPaymentPercent', DEFAULT_INPUTS.downPaymentPercent),
+                mortgageRate: getFloat('mortgageRate', DEFAULT_INPUTS.mortgageRate),
+                stockReturn: getFloat('stockReturn', DEFAULT_INPUTS.stockReturn),
+                appreciation: getFloat('appreciation', DEFAULT_INPUTS.appreciation),
+                feesRate: getFloat('feesRate', DEFAULT_INPUTS.feesRate),
+                monthlyRent: getFloat('monthlyRent', DEFAULT_INPUTS.monthlyRent),
+            };
+            
+            return { location: safeLocation, propertyType: safeType, inputs };
+        };
+        const CurrencyInput = ({ value, name, onChange, className }) => {
+        // We use a ref to access the actual DOM input element
+        const inputRef = React.useRef(null);
+        const [cursor, setCursor] = useState(null);
+
+        // Format helper
+        const format = (val) => new Intl.NumberFormat('en-US').format(val);
+
+        // Run this layout effect immediately after every render to restore cursor
+        React.useLayoutEffect(() => {
+            if (inputRef.current && cursor !== null) {
+                // Restore the cursor position we calculated
+                inputRef.current.setSelectionRange(cursor, cursor);
+            }
+        }, [cursor, value]);
+
+        const handleChange = (e) => {
+            const rawValue = e.target.value;
+            const oldCursorPos = e.target.selectionStart;
+            
+            // 1. Calculate how many distinct digits were to the left of the cursor *before* formatting
+            //    (We ignore commas because they move around)
+            const digitsBeforeCursor = rawValue.slice(0, oldCursorPos).replace(/[^0-9]/g, '').length;
+            
+            // 2. Process the number
+            const cleanValue = rawValue.replace(/[^0-9]/g, '');
+            const numValue = cleanValue === '' ? 0 : parseInt(cleanValue, 10);
+            const formattedValue = format(numValue);
+            
+            // 3. Find the new cursor position in the NEW formatted string
+            //    We scan the new string and stop when we've passed the same number of digits
+            let newCursorPos = 0;
+            let digitsEncountered = 0;
+            
+            for (let i = 0; i < formattedValue.length; i++) {
+                if (/[0-9]/.test(formattedValue[i])) {
+                    digitsEncountered++;
+                }
+                // If we haven't reached our target digit count, or if the current char is a comma, advance cursor
+                if (digitsEncountered <= digitsBeforeCursor) {
+                    newCursorPos = i + 1;
+                } else {
+                    break;
+                }
+            }
+
+            // 4. Update State (Triggering the Effect above)
+            setCursor(newCursorPos);
+            
+            // 5. Send data back to parent
+            //    We create a fake event object so your existing handler still works
+            onChange({
+                target: {
+                    name: name,
+                    value: numValue,
+                    type: 'text' // Force type text logic
+                }
             });
+        };
 
-            const [homeValueDisplay, setHomeValueDisplay] = useState("500,000");
-            const [maxHomePrice, setMaxHomePrice] = useState(2000000); // Dynamic Max
+        return (
+            <input
+                ref={inputRef}
+                type="text"
+                name={name}
+                value={value === 0 ? '' : format(value)}
+                onChange={handleChange}
+                className={className}
+                placeholder="0"
+            />
+        );
+    };
+        const RentVsBuySeesaw = () => {
+            // Initialize state from URL
+            const initialState = useMemo(() => getParamsFromURL(), []);
+            
+            const [location, setLocation] = useState(initialState.location);
+            const [propertyType, setPropertyType] = useState(initialState.propertyType);
+            const [inputs, setInputs] = useState(initialState.inputs);
+            
+            const [activeTab, setActiveTab] = useState("property"); 
+            const [homeValueDisplay, setHomeValueDisplay] = useState(new Intl.NumberFormat('en-US').format(initialState.inputs.homeValue));
+            const [rentDisplay, setRentDisplay] = useState(new Intl.NumberFormat('en-US').format(initialState.inputs.monthlyRent));
+            const [maxHomePrice, setMaxHomePrice] = useState(Math.max(5000000, initialState.inputs.homeValue * 1.5));
+            const [copied, setCopied] = useState(false);
+
+        
+            const [ranges, setRanges] = useState({
+                maxHomeValue: DEFAULT_INPUTS.homeValue * 4,
+                maxRent: 10000
+            });
+            // --- Update URL on State Change (Write) ---
+            useEffect(() => {
+                const params = new URLSearchParams();
+                
+                // Set Inputs
+                Object.keys(inputs).forEach(key => {
+                    params.set(key, inputs[key]);
+                });
+
+                // Set Metadata
+                params.set('location', location);
+                params.set('type', propertyType);
+
+                // Update URL without reload
+                const newUrl = `${window.location.pathname}?${params.toString()}`;
+                window.history.replaceState({}, '', newUrl);
+            }, [inputs, location, propertyType]);
+
+            const handleShare = () => {
+                navigator.clipboard.writeText(window.location.href).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                });
+            };
 
             // --- Computed Market Ranges ---
             const currentRanges = useMemo(() => {
@@ -256,33 +395,26 @@
 
             // --- Handlers ---
             const handleInputChange = (e) => {
-                const { name, value } = e.target;
-                setInputs(prev => ({
-                    ...prev,
-                    [name]: parseFloat(value) || 0
-                }));
-            };
+                // 1. Destructure 'type' along with name and value
+                const { name, value, type } = e.target;
+                const numValue = parseFloat(value) || 0;
 
-            const handleHomeValueChange = (e) => {
-                const rawValue = e.target.value;
-                setHomeValueDisplay(rawValue);
-                const numericValue = parseFloat(rawValue.replace(/,/g, ''));
-                
-                if (!isNaN(numericValue)) {
-                    // Dynamic Max Logic
-                    if (numericValue > maxHomePrice) {
-                        setMaxHomePrice(numericValue * 2);
+                // 2. Always update the input value (Math state)
+                setInputs(prev => ({ ...prev, [name]: numValue }));
+
+                // 3. Dynamic Max Logic: ONLY run this if the user is TYPING.
+                //    If we run this while sliding (type === 'range'), the max expands 
+                //    as you drag, keeping the slider stuck at 50%.
+                if (type === 'text') {
+                    if (name === 'homeValue') {
+                        // Ensure max is at least 2M, or 2x the typed value
+                        setRanges(r => ({ ...r, maxHomeValue: Math.max(DEFAULT_INPUTS.homeValue*4, numValue * 2) }));
                     }
-                    setInputs(prev => ({ ...prev, homeValue: numericValue }));
+                    if (name === 'monthlyRent') {
+                        // Ensure max is at least 10k (4xdefault), or 2x the typed value
+                        setRanges(r => ({ ...r, maxRent: Math.max(DEFAULT_INPUTS.monthlyRent*4, numValue * 2) }));
+                    }
                 }
-            };
-
-            const handleHomeValueFocus = () => {
-                setHomeValueDisplay(inputs.homeValue.toString());
-            };
-
-            const handleHomeValueBlur = () => {
-                setHomeValueDisplay(formatNumberWithCommas(inputs.homeValue));
             };
 
             // --- Custom Key Handler ---
@@ -299,6 +431,21 @@
                     }
                     setValue(options[newIndex]);
                 }
+            };
+            const handleReset = () => {
+                // 1. Reset Math Inputs
+                setInputs(DEFAULT_INPUTS);
+                
+                // 2. Reset Text Displays (The commas)
+                setHomeValueDisplay(new Intl.NumberFormat('en-US').format(DEFAULT_INPUTS.homeValue));
+                setRentDisplay(new Intl.NumberFormat('en-US').format(DEFAULT_INPUTS.monthlyRent));
+                
+                // 3. Reset Dropdowns
+                setLocation("Global");
+                setPropertyType("house");
+                
+                // 4. Reset Dynamic Slider Maxes
+                setRanges({ maxHomeValue: DEFAULT_INPUTS.homeValue*4, maxRent: DEFAULT_INPUTS.monthlyRent*4 });
             };
 
             // --- Visualization Logic ---
@@ -359,54 +506,87 @@
             // --- RENDER HELPERS FOR INPUTS ---
             const PropertyInputs = (
                 <div className="space-y-4 animate-fade-in">
-                    {/* Home Price Slider + Input */}
+                    
+                    {/* --- Home Price Section --- */}
                     <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Home Price</label>
+                        
+                        {/* Text Input (Uses CurrencyInput to fix cursor jumping) */}
                         <div className="relative">
                             <span className="absolute left-3 top-2 text-slate-500 font-mono text-sm">$</span>
-                            <input type="text" value={homeValueDisplay} onChange={handleHomeValueChange} onFocus={() => setHomeValueDisplay(inputs.homeValue.toString())} onBlur={handleHomeValueBlur} className="w-full pl-6 p-2 bg-slate-50 border border-slate-300 rounded text-sm font-mono text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" />
+                            <CurrencyInput 
+                                name="homeValue"
+                                value={inputs.homeValue} 
+                                onChange={handleInputChange} 
+                                className="w-full pl-6 p-2 bg-slate-50 border border-slate-300 rounded text-sm font-mono text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" 
+                            />
                         </div>
+
+                        {/* Slider Input */}
                         <div className="relative h-6 flex items-center mt-2">
                             <div className="absolute w-full h-2 bg-slate-200 rounded-full"></div>
-                            <div className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${Math.min(100, (inputs.homeValue / maxHomePrice) * 100)}%` }}></div>
-                            {/* UPDATED: Added range-input class */}
-                            <input type="range" min="100000" max={maxHomePrice} step="5000" name="homeValue" value={inputs.homeValue} onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                setInputs(p => ({...p, homeValue: val}));
-                                setHomeValueDisplay(formatNumberWithCommas(val));
-                            }} className="absolute w-full h-full opacity-0 z-20 range-input" />
+                            {/* Dynamic Progress Bar based on ranges.maxHomeValue */}
+                            <div className="absolute h-4 w-4 bg-blue-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${Math.min(100, (inputs.homeValue / ranges.maxHomeValue) * 100)}%` }}></div>
+                            <input 
+                                type="range" 
+                                name="homeValue" 
+                                min="100000" 
+                                max={ranges.maxHomeValue} 
+                                step="5000" 
+                                value={inputs.homeValue} 
+                                onChange={handleInputChange} 
+                                className="absolute w-full h-full opacity-0 z-20 range-input" 
+                            />
                         </div>
                     </div>
                     
-                    {/* Rent Slider + Input */}
+                    {/* --- Rent Section --- */}
                     <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Monthly Rent</label>
+                        
                         <div className="flex items-center gap-3 mb-2">
+                            {/* Text Input */}
                             <div className="relative flex-grow">
                                 <span className="absolute left-3 top-2 text-slate-500 font-mono text-sm">$</span>
-                                <input type="number" name="monthlyRent" value={inputs.monthlyRent} onChange={(e) => setInputs(p => ({...p, monthlyRent: parseFloat(e.target.value)||0}))} className="w-full pl-6 p-2 bg-slate-50 border border-slate-300 rounded text-sm font-mono text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                <CurrencyInput 
+                                    name="monthlyRent" 
+                                    value={inputs.monthlyRent} 
+                                    onChange={handleInputChange} 
+                                    className="w-full pl-6 p-2 bg-slate-50 border border-slate-300 rounded text-sm font-mono text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" 
+                                />
                             </div>
+                            {/* Weekly/Yearly Summary */}
                             <div className="flex flex-col text-right text-[10px] font-mono text-slate-500 leading-tight min-w-[80px]">
                                 <span>${formatNumberWithCommas(Math.round(inputs.monthlyRent * 12 / 52))}/wk</span>
                                 <span>${formatNumberWithCommas(inputs.monthlyRent * 12)}/yr</span>
                             </div>
                         </div>
+
+                        {/* Slider Input */}
                         <div className="relative h-6 flex items-center">
                             <div className="absolute w-full h-2 bg-slate-200 rounded-full"></div>
-                            <div className="absolute h-4 w-4 bg-slate-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${Math.min(100, (inputs.monthlyRent / 10000) * 100)}%` }}></div>
-                            {/* UPDATED: Added range-input class */}
-                            <input type="range" min="0" max="10000" step="50" name="monthlyRent" value={inputs.monthlyRent} onChange={(e) => setInputs(p => ({...p, monthlyRent: parseFloat(e.target.value)||0}))} className="absolute w-full h-full opacity-0 z-20 range-input" />
+                            {/* Dynamic Progress Bar based on ranges.maxRent */}
+                            <div className="absolute h-4 w-4 bg-slate-600 rounded-full shadow pointer-events-none z-10 transform -translate-x-1/2" style={{ left: `${Math.min(100, (inputs.monthlyRent / ranges.maxRent) * 100)}%` }}></div>
+                            <input 
+                                type="range" 
+                                name="monthlyRent" 
+                                min="0" 
+                                max={ranges.maxRent} 
+                                step="50" 
+                                value={inputs.monthlyRent} 
+                                onChange={handleInputChange} 
+                                className="absolute w-full h-full opacity-0 z-20 range-input" 
+                            />
                         </div>
                     </div>
                 </div>
             );
-
             const RatesInputs = (
                 <div className="space-y-4 animate-fade-in">
                     <BoxPlotSlider label="Mortgage Rate (Interest)" name="mortgageRate" value={inputs.mortgageRate} min={0} max={14} step={0.1} rangeData={currentRanges.mortgage} onChange={(e) => setInputs(p => ({...p, mortgageRate: parseFloat(e.target.value)}))} leftEmoji="📉" rightEmoji="📈" accentColor="bg-orange-500" thumbColor="bg-orange-500" labelColor="text-orange-600" dollarImpact={Math.round((totals.loanAmount * (inputs.mortgageRate/100)) / 12)} ticks={[2, 5, 8, 12]} inverse={true} />
                     <BoxPlotSlider label="Appreciation (Growth on Home Value)" name="appreciation" value={inputs.appreciation} min={-5} max={15} step={0.1} rangeData={currentRanges.appreciation} onChange={(e) => setInputs(p => ({...p, appreciation: parseFloat(e.target.value)}))} leftEmoji="🏚️" rightEmoji="🚀" accentColor="bg-emerald-500" thumbColor="bg-emerald-500" labelColor="text-emerald-600" dollarImpact={Math.round((inputs.homeValue * (inputs.appreciation/100)) / 12)} ticks={[-2, 3, 8, 12]} inverse={false} />
-                    <BoxPlotSlider label="Fees (Tax/Maint/Ins)" name="feesRate" value={inputs.feesRate} min={0} max={5} step={0.1} rangeData={currentRanges.fees} onChange={(e) => setInputs(p => ({...p, feesRate: parseFloat(e.target.value)}))} leftEmoji="⛺" rightEmoji="🏰" accentColor="bg-red-500" thumbColor="bg-red-500" labelColor="text-red-600" dollarImpact={Math.round((inputs.homeValue * (inputs.feesRate/100)) / 12)} ticks={[0, 1.5, 3, 4.5]} inverse={true} />
-                    <BoxPlotSlider label="Inv. Return (Post-tax)" name="stockReturn" value={inputs.stockReturn} min={-1} max={20} step={0.1} rangeData={currentRanges.stock} onChange={(e) => setInputs(p => ({...p, stockReturn: parseFloat(e.target.value)}))} leftEmoji="🐻" rightEmoji="🐂" accentColor="bg-yellow-500" thumbColor="bg-yellow-500" labelColor="text-yellow-600" dollarImpact={Math.round((totals.downPayment * (inputs.stockReturn/100)) / 12)} ticks={[0, 7, 14]} inverse={false} />
+                    <BoxPlotSlider label="Expenses (Tax, Maintinance, Insurance)" name="feesRate" value={inputs.feesRate} min={0} max={5} step={0.1} rangeData={currentRanges.fees} onChange={(e) => setInputs(p => ({...p, feesRate: parseFloat(e.target.value)}))} leftEmoji="⛺" rightEmoji="🏰" accentColor="bg-red-500" thumbColor="bg-red-500" labelColor="text-red-600" dollarImpact={Math.round((inputs.homeValue * (inputs.feesRate/100)) / 12)} ticks={[0, 1.5, 3, 4.5]} inverse={true} />
+                    <BoxPlotSlider label="Investment Return (Post-tax)" name="stockReturn" value={inputs.stockReturn} min={-1} max={20} step={0.1} rangeData={currentRanges.stock} onChange={(e) => setInputs(p => ({...p, stockReturn: parseFloat(e.target.value)}))} leftEmoji="🐻" rightEmoji="🐂" accentColor="bg-yellow-500" thumbColor="bg-yellow-500" labelColor="text-yellow-600" dollarImpact={Math.round((totals.downPayment * (inputs.stockReturn/100)) / 12)} ticks={[0, 7, 14]} inverse={false} />
                     
                     <div className="pt-4 mt-2 border-t border-slate-100">
                         <label className="flex justify-between text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-1">
@@ -471,8 +651,17 @@
                     </defs>
                 </svg>
 
-                <header className="w-full max-w-6xl mb-4 flex flex-col items-center gap-2">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 text-center">The Mortgage Equation</h1>
+                <header className="w-full max-w-6xl mb-4 relative flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 text-center">The Mortgage Equation</h1>
+                        <button onClick={handleShare} className="relative group p-2 rounded-full hover:bg-slate-200 transition-colors" title="Share current settings">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            {/* Copied Tooltip */}
+                            <div className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded transition-opacity duration-300 pointer-events-none ${copied ? 'opacity-100' : 'opacity-0'}`}>
+                                Copied Prefilled URL!
+                            </div>
+                        </button>
+                    </div>
                 </header>
 
                 <div className="w-full max-w-7xl flex-grow grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6">
@@ -490,8 +679,29 @@
                                     {activeTab === 'rates' && RatesInputs}
                                 </div>
                                 <div className="hidden lg:flex flex-col gap-6">
-                                    <div><h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Property Details</h2>{PropertyInputs}</div>
-                                    <div><h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Market Factors</h2>{RatesInputs}</div>
+                                    
+                                    {/* Property Details Section with Reset Button */}
+                                    <div>
+                                        <div className="flex justify-between items-end border-b border-slate-100 pb-2 mb-4">
+                                            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Property Details</h2>
+                                            <button 
+                                                onClick={handleReset} 
+                                                className="text-[10px] font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1"
+                                                title="Reset to defaults"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                                RESET
+                                            </button>
+                                        </div>
+                                        {PropertyInputs}
+                                    </div>
+
+                                    {/* Market Factors Section */}
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Market Factors</h2>
+                                        {RatesInputs}
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -500,57 +710,113 @@
                     <div className="order-1 lg:order-2 flex flex-col gap-2">
                         
                         {/* FULL EQUATION BREAKDOWN (UPDATED UI) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {/* Buying Card */}
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-col gap-2">
-                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1 mb-1">Cost of Buying</div>
-                                <div className="text-[10px] sm:text-xs font-mono leading-tight text-slate-600 space-y-2">
-                                    <div className="flex justify-between items-center">
-                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span><span className="font-bold text-slate-700">Interest</span></div>
-                                         <span className="text-slate-500">({formatKSimple(totals.loanAmount)}×{inputs.mortgageRate}%)</span>
-                                         <span className="font-medium">{formatMoney(totals.interestCost)}</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            
+                            {/* --- Buying Card --- */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col h-full">
+                                {/* Card Header (Matches Renting Card Style) */}
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">
+                                    Cost of Buying
+                                </div>
+
+                                <div className="flex-grow flex flex-col justify-between">
+                                    {/* The Grid: 3 Columns [Label - Equation - Value] */}
+                                    <div className="grid grid-cols-[90px_1fr_80px] md:grid-cols-[100px_1fr_90px] gap-y-3 text-[11px] sm:text-xs font-mono items-center">
+                                        
+                                        {/* Row 1: Interest */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0"></div>
+                                            <span className="font-bold text-slate-700">Interest</span>
+                                        </div>
+                                        <div className="text-center text-slate-400">
+                                            ({formatKSimple(totals.loanAmount)}×{inputs.mortgageRate}%)
+                                        </div>
+                                        <div className="text-right font-medium text-slate-700">
+                                            {formatMoney(totals.interestCost)}
+                                        </div>
+
+                                        {/* Row 2: Expenses (Formerly Fees) */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                                            <span className="font-bold text-slate-700">Expenses</span>
+                                        </div>
+                                        <div className="text-center text-slate-400">
+                                            ({formatKSimple(inputs.homeValue)}×{inputs.feesRate}%)
+                                        </div>
+                                        <div className="text-right font-medium text-slate-700">
+                                            + {formatMoney(totals.feesCost)}
+                                        </div>
+
+                                        {/* Row 3: Appreciation */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+                                            <span className="font-bold text-slate-700">Appreciation</span>
+                                        </div>
+                                        <div className="text-center text-slate-400">
+                                            ({formatKSimple(inputs.homeValue)}×{inputs.appreciation}%)
+                                        </div>
+                                        <div className="text-right font-medium text-emerald-600">
+                                            - {formatMoney(Math.abs(totals.totalAppreciation))}
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span><span className="font-bold text-slate-700">Fees</span></div>
-                                         <span className="text-slate-500">({formatKSimple(inputs.homeValue)}×{inputs.feesRate}%)</span>
-                                         <span className="font-medium"> + {formatMoney(totals.feesCost)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="font-bold text-slate-700">{totals.totalAppreciation >= 0 ? 'Appreciation' : 'Depreciation'}</span></div>
-                                         <span className="text-slate-500">({formatKSimple(inputs.homeValue)}×{inputs.appreciation}%)</span>
-                                         <span className="font-medium text-emerald-600"> {totals.totalAppreciation >= 0 ? '-' : '+'} {formatMoney(Math.abs(totals.totalAppreciation))}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-1">
-                                        <span className="font-bold text-slate-900">Net Annual Cost</span>
-                                        <span className="font-bold text-slate-900 text-sm">= {formatMoney(totals.netBuyCost)}</span>
+
+                                    {/* Net Total Section */}
+                                    <div>
+                                        <div className="border-t border-slate-100 my-3"></div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold text-slate-900 text-xs sm:text-sm">Net Annual Cost</span>
+                                            <span className="font-bold text-slate-900 text-sm sm:text-base">= {formatMoney(totals.netBuyCost)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Renting Card */}
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-col gap-2">
-                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1 mb-1">Cost of Renting</div>
-                                <div className="text-[10px] sm:text-xs font-mono leading-tight text-slate-600 space-y-2">
-                                    <div className="flex justify-between items-center">
-                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500"></span><span className="font-bold text-slate-700">Rent</span></div>
-                                         <span className="text-slate-500">({formatMoney(inputs.monthlyRent)}×12)</span>
-                                         <span className="font-medium">{formatMoney(totals.annualRent)}</span>
+                            {/* --- Renting Card --- */}
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col h-full">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">
+                                    Cost of Renting
+                                </div>
+
+                                <div className="flex-grow flex flex-col justify-between">
+                                    {/* The Grid: Same columns as Buying for alignment */}
+                                    <div className="grid grid-cols-[90px_1fr_80px] md:grid-cols-[100px_1fr_90px] gap-y-3 text-[11px] sm:text-xs font-mono items-center">
+                                        
+                                        {/* Row 1: Rent */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-slate-500 shrink-0"></div>
+                                            <span className="font-bold text-slate-700">Rent</span>
+                                        </div>
+                                        <div className="text-center text-slate-400">
+                                            ({formatMoney(inputs.monthlyRent)}×12)
+                                        </div>
+                                        <div className="text-right font-medium text-slate-700">
+                                            {formatMoney(totals.annualRent)}
+                                        </div>
+
+                                        {/* Row 2: Investment Return */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-yellow-500 shrink-0"></div>
+                                            <span className="font-bold text-slate-700">Investment Return</span>
+                                        </div>
+                                        <div className="text-center text-slate-400">
+                                            ({formatKSimple(totals.downPayment)}×{inputs.stockReturn}%)
+                                        </div>
+                                        <div className="text-right font-medium text-yellow-600">
+                                            - {formatMoney(Math.abs(totals.investmentReturn))}
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500"></span><span className="font-bold text-slate-700">{totals.investmentReturn >= 0 ? 'Inv. Return' : 'Inv. Loss'}</span></div>
-                                         <span className="text-slate-500">({formatKSimple(totals.downPayment)}×{inputs.stockReturn}%)</span>
-                                         <span className="font-medium text-yellow-600"> {totals.investmentReturn >= 0 ? '-' : '+'} {formatMoney(Math.abs(totals.investmentReturn))}</span>
-                                    </div>
-                                    {/* Spacer to align with buying card if needed, or just let it float */}
-                                    <div className="h-5 hidden sm:block"></div> 
-                                    <div className="flex justify-between items-center pt-1 mt-auto">
-                                        <span className="font-bold text-slate-900">Net Annual Cost</span>
-                                        <span className="font-bold text-slate-900 text-sm">= {formatMoney(totals.netRentCost)}</span>
+
+                                    {/* Net Total Section */}
+                                    <div>
+                                        <div className="border-t border-slate-100 my-3"></div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold text-slate-900 text-xs sm:text-sm">Net Annual Cost</span>
+                                            <span className="font-bold text-slate-900 text-sm sm:text-base">= {formatMoney(totals.netRentCost)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
 
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative overflow-hidden w-full aspect-[2/1] flex flex-col">
                             <div className={`absolute top-4 left-0 right-0 mx-auto w-fit px-4 py-1.5 rounded-full font-bold text-xs md:text-sm shadow-md z-10 border transition-colors duration-300
